@@ -46,6 +46,11 @@ class Player(pygame.sprite.Sprite):
         self.invulnerable_timer = 0
         self.invulnerable_duration = 1.0  # Seconds of invulnerability after hit
         
+        # Visual feedback for damage
+        self.flash_rate = 0.1  # How quickly to flash (seconds)
+        self.flash_timer = 0
+        self.flash_visible = True
+        
         # Store particle system but don't use it
         self.particle_system = particle_system
         
@@ -143,23 +148,45 @@ class Player(pygame.sprite.Sprite):
         # Update rect position
         self.rect.center = self.position
         
-        # Update invulnerability
+        # Update invulnerability and flashing effect
         if self.invulnerable:
             self.invulnerable_timer -= dt
+            
+            # Update flashing effect
+            self.flash_timer -= dt
+            if self.flash_timer <= 0:
+                self.flash_visible = not self.flash_visible
+                self.flash_timer = self.flash_rate
+                
+                # Apply visual effect based on flash state
+                if not self.flash_visible:
+                    # Set transparency to half during invulnerability "off" phase
+                    temp_image = self.image_original.copy()
+                    temp_image.set_alpha(128)  # 0-255, where 0 is fully transparent
+                    self.image = temp_image
+                else:
+                    # Reset to full visibility
+                    self.image = self.image_original.copy()
+                    
+                # Keep the image rotated correctly
+                if self.rotation != 0:
+                    self.image = pygame.transform.rotate(self.image, -self.rotation)
+                
+            # End invulnerability if timer expired
             if self.invulnerable_timer <= 0:
                 self.invulnerable = False
+                self.flash_visible = True
+                # Ensure full visibility when invulnerability ends
+                self.image = self.image_original.copy()
+                if self.rotation != 0:
+                    self.image = pygame.transform.rotate(self.image, -self.rotation)
         
         # Emit thruster particles if thrusting
         if self.thrusting:
             self.thruster_cooldown -= dt
             if self.thruster_cooldown <= 0:
-                # print(f"[DEBUG Player Update] Thrusting detected. Cooldown reached. Calling emit_thruster_particles. Time: {pygame.time.get_ticks()}") # DEBUG
                 self.emit_thruster_particles()  # Call the emission method
                 self.thruster_cooldown = self.thruster_rate
-        #else: # DEBUG
-            #if not hasattr(self, 'last_no_thrust_print') or pygame.time.get_ticks() - self.last_no_thrust_print > 1000: # DEBUG
-                # print(f"[DEBUG Player Update] Not thrusting or cooldown not ready. Cooldown: {self.thruster_cooldown:.2f}") # DEBUG
-                #self.last_no_thrust_print = pygame.time.get_ticks() # DEBUG
                 
         # Update rotation based on movement direction
         if self.velocity.length() > 0.5:  # Only rotate if moving significantly
@@ -170,8 +197,10 @@ class Player(pygame.sprite.Sprite):
             self.rotation = target_angle + 90
             
             # Rotate the image (negative because pygame rotates counterclockwise)
-            self.image = pygame.transform.rotate(self.image_original, -self.rotation)
-            self.rect = self.image.get_rect(center=self.rect.center)
+            # Only update the rotation if not in the middle of a flash to prevent flickering
+            if not self.invulnerable or self.flash_visible:
+                self.image = pygame.transform.rotate(self.image_original, -self.rotation)
+                self.rect = self.image.get_rect(center=self.rect.center)
     
     def take_damage(self, amount):
         """Apply damage to the player if not invulnerable.
@@ -191,22 +220,21 @@ class Player(pygame.sprite.Sprite):
         if self.health < 0:
             self.health = 0
             
-        # Activate invulnerability
+        # Activate invulnerability and flashing effect
         self.invulnerable = True
         self.invulnerable_timer = self.invulnerable_duration
+        self.flash_timer = self.flash_rate
+        self.flash_visible = True
         
         return True 
 
     def emit_thruster_particles(self):
         """Emit thruster particle effects from three points behind the player."""
-        # print(f"[DEBUG emit_thruster_particles] Function called. Time: {pygame.time.get_ticks()}") # DEBUG
         if not self.particle_system:
-            # print("[DEBUG emit_thruster_particles] No particle system found!") # DEBUG
             return
 
         # Ship rotation determines the orientation
         angle_rad = math.radians(self.rotation)
-        # print(f"[DEBUG emit_thruster_particles] Angle (rad): {angle_rad:.2f}, Rotation (deg): {self.rotation:.1f}") # DEBUG
 
         # --- Calculate Emission Points Relative to Ship Orientation --- 
 
@@ -215,7 +243,6 @@ class Player(pygame.sprite.Sprite):
         back_offset_distance = self.radius * 0.9  # How far back from the center
         bottom_x = self.position.x - math.sin(angle_rad) * back_offset_distance
         bottom_y = self.position.y + math.cos(angle_rad) * back_offset_distance
-        # print(f"[DEBUG emit_thruster_particles] Bottom Point: ({bottom_x:.1f}, {bottom_y:.1f})") # DEBUG
 
         # 2. Left and Right Points:
         #    Calculate points perpendicular to the ship's orientation from the bottom point.
@@ -227,7 +254,6 @@ class Player(pygame.sprite.Sprite):
 
         right_x = bottom_x - math.sin(perp_angle) * thruster_spacing
         right_y = bottom_y - math.cos(perp_angle) * thruster_spacing
-        # print(f"[DEBUG emit_thruster_particles] Left Point: ({left_x:.1f}, {left_y:.1f}), Right Point: ({right_x:.1f}, {right_y:.1f})") # DEBUG
 
         # --- Define Flame Direction --- 
         # CORRECTED: The flame should oppose the ACTUAL VELOCITY of the player.
@@ -236,8 +262,6 @@ class Player(pygame.sprite.Sprite):
         else:
             # If not moving, default to pointing opposite the ship's orientation
             flame_direction = Vector2(-math.cos(angle_rad), -math.sin(angle_rad))
-            
-        # print(f"[DEBUG emit_thruster_particles] Velocity: {self.velocity}, Flame Direction: {flame_direction}") # DEBUG
 
         # --- Calculate Ship's Perpendicular Vector --- 
         # This is needed to spread the cone relative to the ship's body, not velocity.
@@ -247,7 +271,6 @@ class Player(pygame.sprite.Sprite):
         # --- Emit Flames --- 
 
         # Center Flame (more intense)
-        # print("[DEBUG emit_thruster_particles] Calling _create_jet_flame for Center Thruster") # DEBUG
         self._create_jet_flame(
             bottom_x, bottom_y,       # Position
             flame_direction,            # Direction
@@ -260,7 +283,6 @@ class Player(pygame.sprite.Sprite):
         )
 
         # Left Flame
-        # print("[DEBUG emit_thruster_particles] Calling _create_jet_flame for Left Thruster") # DEBUG
         self._create_jet_flame(
             left_x, left_y,             # Position
             flame_direction,            # Direction
@@ -273,7 +295,6 @@ class Player(pygame.sprite.Sprite):
         )
 
         # Right Flame
-        # print("[DEBUG emit_thruster_particles] Calling _create_jet_flame for Right Thruster") # DEBUG
         self._create_jet_flame(
             right_x, right_y,            # Position
             flame_direction,            # Direction
@@ -287,11 +308,6 @@ class Player(pygame.sprite.Sprite):
 
     def _create_jet_flame(self, x, y, direction, ship_perp_vector, count, cone_width, speed_factor, size_range, lifetime_range):
         """Helper method to create a single jet flame cone effect."""
-        # print(f"[DEBUG _create_jet_flame] Called for pos ({x:.1f}, {y:.1f}), count {count}") # DEBUG
-        # REMOVED: Don't calculate perp based on flame direction
-        # perp_angle = math.atan2(direction.y, direction.x) + (math.pi / 2)
-        # perp_vector = Vector2(math.cos(perp_angle), math.sin(perp_angle))
-
         # Base speed depends slightly on player's current speed
         base_particle_speed = max(150, self.velocity.length() * 0.5) * speed_factor
 
@@ -325,7 +341,6 @@ class Player(pygame.sprite.Sprite):
             # Lifetime calculation (center particles live slightly longer)
             current_min_lifetime = lifetime_range[0] * (0.9 + center_ratio * 0.2)
             current_max_lifetime = lifetime_range[1] * (0.9 + center_ratio * 0.2)
-            # print(f"  [DEBUG Particle {i+1}/{count}] Emit at ({emit_x:.1f},{emit_y:.1f}), Vel: ({vel_x:.1f},{vel_y:.1f}), Size: ({current_min_size:.1f}-{current_max_size:.1f}), Life: ({current_min_lifetime:.2f}-{current_max_lifetime:.2f})") # DEBUG
 
             # Emit particle
             self.particle_system.emit_particles(
