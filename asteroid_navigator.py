@@ -2,6 +2,7 @@ import pygame
 import sys
 import random
 import os # Import os for path joining
+import math # For calculating star movement
 from pygame.locals import * # Import constants like K_LEFT, QUIT etc.
 from pygame.math import Vector2 # Import Vector2
 
@@ -20,6 +21,25 @@ HEALTH_BAR_BORDER = 2
 HEALTH_BAR_COLOR = (0, 255, 0)  # Green
 HEALTH_BAR_BACKGROUND_COLOR = (100, 100, 100)  # Gray
 HEALTH_BAR_BORDER_COLOR = (255, 255, 255)  # White
+
+# Background stars constants
+NUM_STARS = 100
+STAR_SIZES = [1, 2, 3]  # Different star sizes
+STAR_COLORS = [
+    (255, 255, 255),  # White
+    (200, 200, 255),  # Light Blue
+    (255, 255, 200),  # Light Yellow
+]
+STAR_SPEEDS = [20, 40, 60]  # Different star speeds
+
+# Countdown timer constants
+COUNTDOWN_DURATION = 3  # seconds
+COUNTDOWN_FONT_SIZE = 120
+COUNTDOWN_COLOR = (255, 255, 255)  # White
+
+# Scene transition constants
+FADE_DURATION = 1.0  # seconds
+MUSIC_FADE_DURATION = 1000  # milliseconds
 
 # Asteroid size categories and ranges
 ASTEROID_SIZES = {
@@ -81,8 +101,9 @@ INSTRUCTION_FONT_SIZE = 25
 
 # --- Game States ---
 START = 0
-PLAYING = 1
-GAME_OVER = 2
+COUNTDOWN = 1  # New state for countdown
+PLAYING = 2    # Changed from 1 to 2
+GAME_OVER = 3  # Changed from 2 to 3
 
 # --- Game Initialization ---
 pygame.init()
@@ -119,15 +140,17 @@ except pygame.error as e:
         color = (128 + i * 18, 128 - i * 18, 128)  # Vary colors for different asteroid types
         pygame.draw.ellipse(ASTEROID_IMGS[i], color, (0, 0, ASTEROID_SIZES["large"]["max"], ASTEROID_SIZES["large"]["max"]))
 
-# Load background music *AFTER* mixer init
-# Start music ONCE and let it loop
+# Load music for each game state
 try:
-    music_path = os.path.join("assets", "sound", "ost.ogg")
-    pygame.mixer.music.load(music_path)
-    pygame.mixer.music.set_volume(0.5) # Adjust volume (0.0 to 1.0)
-    pygame.mixer.music.play(loops=-1) # Play indefinitely from the start
+    MENU_MUSIC = os.path.join("assets", "sound", "Lone Knight in the Stars(Menu Scene).ogg")
+    GAME_MUSIC = os.path.join("assets", "sound", "Pixel Knight Asteroid Chase(Game Scene).ogg")
+    GAME_OVER_MUSIC = os.path.join("assets", "sound", "Asteroid Knight(Game Over).ogg")
 except pygame.error as e:
-    print(f"Error loading or playing music: {e}")
+    print(f"Error loading music files: {e}")
+
+# Fade surfaces for transitions
+fade_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+fade_surface.fill((0, 0, 0))  # Black surface for fading
 
 clock = pygame.time.Clock()
 
@@ -138,6 +161,103 @@ score_font = pygame.font.Font(default_font_path, SCORE_FONT_SIZE)
 game_over_font = pygame.font.Font(default_font_path, GAME_OVER_FONT_SIZE)
 title_font = pygame.font.Font(default_font_path, TITLE_FONT_SIZE)
 instruction_font = pygame.font.Font(default_font_path, INSTRUCTION_FONT_SIZE)
+countdown_font = pygame.font.Font(default_font_path, COUNTDOWN_FONT_SIZE)
+
+# --- Star Class ---
+class Star:
+    def __init__(self):
+        self.x = random.randint(0, SCREEN_WIDTH)
+        self.y = random.randint(0, SCREEN_HEIGHT)
+        self.size = random.choice(STAR_SIZES)
+        self.color = random.choice(STAR_COLORS)
+        self.speed = random.choice(STAR_SPEEDS)
+        
+    def update(self, dt):
+        # Move stars downward
+        self.y += self.speed * dt
+        
+        # If star goes off-screen, reset it to the top
+        if self.y > SCREEN_HEIGHT:
+            self.y = 0
+            self.x = random.randint(0, SCREEN_WIDTH)
+            
+    def draw(self, surface):
+        pygame.draw.circle(surface, self.color, (int(self.x), int(self.y)), self.size)
+
+# --- Background Menu Asteroid Class ---
+class MenuAsteroid:
+    def __init__(self):
+        self.size = random.randint(20, 60)
+        self.x = random.randint(-100, SCREEN_WIDTH + 100)
+        self.y = random.randint(-100, SCREEN_HEIGHT + 100)
+        self.vel_x = random.uniform(-30, 30)
+        self.vel_y = random.uniform(-30, 30)
+        self.rotation = 0
+        self.rotation_speed = random.uniform(-50, 50)
+        self.image = pygame.transform.scale(
+            ASTEROID_IMGS[random.randint(0, 6)], 
+            (self.size, self.size)
+        )
+        self.image.set_colorkey((0, 0, 0))  # Make background transparent
+        
+    def update(self, dt):
+        # Move asteroid
+        self.x += self.vel_x * dt
+        self.y += self.vel_y * dt
+        
+        # Rotate asteroid
+        self.rotation += self.rotation_speed * dt
+        self.rotation %= 360
+        
+        # If asteroid goes off-screen, reset it from the opposite side
+        if self.x < -self.size:
+            self.x = SCREEN_WIDTH + self.size
+        elif self.x > SCREEN_WIDTH + self.size:
+            self.x = -self.size
+            
+        if self.y < -self.size:
+            self.y = SCREEN_HEIGHT + self.size
+        elif self.y > SCREEN_HEIGHT + self.size:
+            self.y = -self.size
+            
+    def draw(self, surface):
+        # Rotate the image
+        rotated_image = pygame.transform.rotate(self.image, self.rotation)
+        # Get new rect after rotation
+        rect = rotated_image.get_rect(center=(self.x, self.y))
+        # Draw the rotated image
+        surface.blit(rotated_image, rect.topleft)
+
+# --- Menu Player Class ---
+class MenuPlayer:
+    def __init__(self):
+        self.image = pygame.transform.scale(PLAYER_IMG, (PLAYER_SIZE, PLAYER_SIZE))
+        self.image.set_colorkey((0, 0, 0))
+        self.x = SCREEN_WIDTH // 2
+        self.y = SCREEN_HEIGHT // 2 + 150
+        self.angle = 0
+        self.radius = 100
+        self.speed = 30  # Degrees per second
+        
+    def update(self, dt):
+        # Move in a circular path
+        self.angle += self.speed * dt
+        self.angle %= 360
+        
+        # Calculate position on the circle
+        self.x = SCREEN_WIDTH // 2 + self.radius * math.cos(math.radians(self.angle))
+        self.y = SCREEN_HEIGHT // 2 + 150 + self.radius * math.sin(math.radians(self.angle))
+        
+    def draw(self, surface):
+        # Calculate angle for player to face the center of the circle
+        rotation_angle = (self.angle + 90) % 360
+        
+        # Rotate the image
+        rotated_image = pygame.transform.rotate(self.image, -rotation_angle)
+        # Get new rect after rotation
+        rect = rotated_image.get_rect(center=(self.x, self.y))
+        # Draw the rotated image
+        surface.blit(rotated_image, rect.topleft)
 
 # --- Player Class ---
 class Player(pygame.sprite.Sprite):
@@ -388,26 +508,101 @@ else:
 
 # --- Game Functions ---
 def reset_game():
-    global score, game_over, asteroid_spawn_timer, next_spawn_interval, player
+    global score, game_over, asteroid_spawn_timer, next_spawn_interval, player, fade_alpha, transition_timer, stars
     all_sprites.empty() # Clear all sprites
     asteroids.empty()   # Clear asteroids specifically
     score = 0
     game_over = False
     asteroid_spawn_timer = 0.0 # Reset spawn timer
     next_spawn_interval = random.uniform(ASTEROID_SPAWN_RATE * 0.5, ASTEROID_SPAWN_RATE * 1.5) # Reset spawn interval
+    fade_alpha = 255
+    transition_timer = 0
 
     # Recreate player and add to groups
     player = Player((SCREEN_WIDTH // 2, SCREEN_HEIGHT - PLAYER_SIZE * 1.5))
     all_sprites.add(player)
-    # Music restart removed - it plays continuously now
-    # try:
-    #     pygame.mixer.music.play(loops=-1)
-    # except pygame.error as e:
-    #     print(f"Error restarting music: {e}")
+    
+    # Create a new set of stars
+    stars = [Star() for _ in range(NUM_STARS)]
+
+def change_music(music_file, volume=0.5):
+    """Change background music with cross-fade."""
+    try:
+        pygame.mixer.music.fadeout(MUSIC_FADE_DURATION)
+        pygame.time.delay(MUSIC_FADE_DURATION // 2)  # Wait for half the fade out time
+        pygame.mixer.music.load(music_file)
+        pygame.mixer.music.set_volume(volume)
+        pygame.mixer.music.play(loops=-1)
+    except pygame.error as e:
+        print(f"Error changing music: {e}")
+
+def fade_in(surface, dt):
+    """Fade screen in from black."""
+    global fade_alpha, transition_timer
+    
+    transition_timer += dt
+    fade_alpha = max(0, int(255 * (1 - transition_timer / FADE_DURATION)))
+    
+    if fade_alpha > 0:
+        fade_surface.set_alpha(fade_alpha)
+        surface.blit(fade_surface, (0, 0))
+        
+    return fade_alpha <= 0  # Return True when fade is complete
+
+def fade_out(surface, dt):
+    """Fade screen out to black."""
+    global fade_alpha, transition_timer
+    
+    transition_timer += dt
+    fade_alpha = min(255, int(255 * (transition_timer / FADE_DURATION)))
+    
+    if fade_alpha < 255:
+        fade_surface.set_alpha(fade_alpha)
+        surface.blit(fade_surface, (0, 0))
+        
+    return fade_alpha >= 255  # Return True when fade is complete
+
+def update_stars(dt):
+    """Update all stars."""
+    for star in stars:
+        star.update(dt)
+
+def draw_stars():
+    """Draw all stars."""
+    for star in stars:
+        star.draw(screen)
 
 # --- Screen Functions ---
 def show_start_screen():
+    global menu_asteroids, menu_player, transition_timer, fade_alpha
+    
+    # Initialize menu elements if they don't exist
+    if 'menu_asteroids' not in globals():
+        global menu_asteroids
+        menu_asteroids = [MenuAsteroid() for _ in range(10)]
+        
+    if 'menu_player' not in globals():
+        global menu_player
+        menu_player = MenuPlayer()
+    
+    # Change to menu music if not already playing
+    if not hasattr(show_start_screen, 'music_started'):
+        change_music(MENU_MUSIC)
+        show_start_screen.music_started = True
+    
     screen.fill(BACKGROUND_COLOR)
+    
+    # Draw stars
+    draw_stars()
+    
+    # Update and draw menu asteroids
+    for asteroid in menu_asteroids:
+        asteroid.update(1/60)  # Assume 60 FPS for menu animation
+        asteroid.draw(screen)
+    
+    # Update and draw menu player
+    menu_player.update(1/60)
+    menu_player.draw(screen)
 
     # --- Draw Logo --- #
     # Get logo rect and center it
@@ -421,21 +616,130 @@ def show_start_screen():
     start_rect = start_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + logo_rect.height // 2)) # Position below logo
 
     screen.blit(start_surface, start_rect)
+    
+    # Handle fade
+    if transition_timer < FADE_DURATION:
+        fade_in(screen, 1/60)
+    
     pygame.display.flip()
 
     waiting = True
     while waiting:
         clock.tick(60) # Keep clock ticking
+        
+        # Update stars
+        update_stars(1/60)
+        
+        # Update menu animations
+        for asteroid in menu_asteroids:
+            asteroid.update(1/60)
+        menu_player.update(1/60)
+        
+        # Redraw screen
+        screen.fill(BACKGROUND_COLOR)
+        draw_stars()
+        for asteroid in menu_asteroids:
+            asteroid.draw(screen)
+        menu_player.draw(screen)
+        
+        # Redraw logo and instructions
+        screen.blit(LOGO_IMG, logo_rect)
+        screen.blit(start_surface, start_rect)
+        
+        pygame.display.flip()
+        
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit() # Exit directly if quit from start screen
             if event.type == KEYDOWN or event.type == JOYBUTTONDOWN:
-                waiting = False # Exit waiting loop to start game
+                # Begin transition to countdown
+                fade_alpha = 0
+                transition_timer = 0
+                waiting = False
+
+def show_countdown():
+    """Show countdown before gameplay starts."""
+    global transition_timer, fade_alpha
+    
+    # Change to game music
+    change_music(GAME_MUSIC)
+    
+    countdown_start_time = pygame.time.get_ticks() / 1000  # Current time in seconds
+    
+    # Initialize fade-in effect
+    transition_timer = 0
+    fade_alpha = 255
+    
+    counting = True
+    while counting:
+        dt = clock.tick(60) / 1000.0
+        current_time = pygame.time.get_ticks() / 1000
+        elapsed = current_time - countdown_start_time
+        
+        # Calculate current countdown number
+        count_num = COUNTDOWN_DURATION - int(elapsed)
+        
+        if count_num <= 0:
+            # Countdown finished
+            counting = False
+        
+        # Handle events
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+        
+        # Update stars
+        update_stars(dt)
+        
+        # Clear screen
+        screen.fill(BACKGROUND_COLOR)
+        
+        # Draw stars
+        draw_stars()
+        
+        # Draw the countdown number
+        if count_num > 0:
+            count_text = str(count_num)
+            count_surface = countdown_font.render(count_text, True, COUNTDOWN_COLOR)
+            count_rect = count_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+            screen.blit(count_surface, count_rect)
+            
+            # Draw "Get Ready!" text
+            ready_text = "Get Ready!"
+            ready_surface = instruction_font.render(ready_text, True, COUNTDOWN_COLOR)
+            ready_rect = ready_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 3))
+            screen.blit(ready_surface, ready_rect)
+        
+        # Handle fade effect
+        if elapsed < FADE_DURATION:
+            fade_in(screen, dt)
+            
+        pygame.display.flip()
+    
+    # Reset transition for the next state
+    transition_timer = 0
+    fade_alpha = 0
 
 def show_game_over_screen(score):
     """Show the game over screen with score."""
+    global transition_timer, fade_alpha, menu_asteroids
+    
+    # Change to game over music
+    change_music(GAME_OVER_MUSIC)
+    
+    # Initialize menu asteroids for animation
+    menu_asteroids = [MenuAsteroid() for _ in range(10)]
+    
+    # Start with a fade-in
+    transition_timer = 0
+    fade_alpha = 255
+    
     screen.fill(BACKGROUND_COLOR)
+    
+    # Draw stars
+    draw_stars()
     
     # Draw "Game Over" text
     game_over_text = "Game Over"
@@ -461,17 +765,49 @@ def show_game_over_screen(score):
     restart_rect = restart_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 100))
     screen.blit(restart_surface, restart_rect)
     
+    # Apply fade effect
+    fade_in(screen, 1/60)
+    
     pygame.display.flip()
     
     # Wait for keypress to restart
     waiting = True
     while waiting:
-        clock.tick(60)
+        dt = clock.tick(60) / 1000.0
+        
+        # Update stars
+        update_stars(dt)
+        
+        # Update menu asteroids
+        for asteroid in menu_asteroids:
+            asteroid.update(dt)
+        
+        # Clear screen
+        screen.fill(BACKGROUND_COLOR)
+        
+        # Draw stars
+        draw_stars()
+        
+        # Draw asteroids
+        for asteroid in menu_asteroids:
+            asteroid.draw(screen)
+        
+        # Redraw all text
+        screen.blit(game_over_surface, game_over_rect)
+        screen.blit(death_surface, death_rect)
+        screen.blit(score_surface, score_rect)
+        screen.blit(restart_surface, restart_rect)
+        
+        pygame.display.flip()
+        
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit() # Exit instead of just breaking the loop
             if event.type == KEYDOWN or event.type == JOYBUTTONDOWN:
+                # Start transition to menu
+                transition_timer = 0
+                fade_alpha = 0
                 waiting = False # Will transition back to PLAYING in main loop
 
 def draw_health_bar(screen, health, max_health):
@@ -504,6 +840,13 @@ def draw_health_bar(screen, health, max_health):
     health_rect = health_surface.get_rect(midleft=(x + 10, y + HEALTH_BAR_HEIGHT // 2))
     screen.blit(health_surface, health_rect)
 
+# Initialize stars
+stars = [Star() for _ in range(NUM_STARS)]
+
+# Initialize transition variables
+transition_timer = 0
+fade_alpha = 255
+
 # --- Game Loop ---
 running = True
 game_state = START # Start in the START state
@@ -517,22 +860,22 @@ while running:
     # --- State Machine Logic ---
     if game_state == START:
         show_start_screen()
-        reset_game() # Reset variables before starting to play
-        game_state = PLAYING # Transition to playing
+        reset_game() # Reset variables before starting countdown
+        game_state = COUNTDOWN # Transition to countdown
+    
+    elif game_state == COUNTDOWN:
+        show_countdown()
+        game_state = PLAYING  # Transition to playing
 
     elif game_state == PLAYING:
         # --- Event Handling (for PLAYING state) ---
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            # Handle restart logic directly here (Removed - handled in GAME_OVER state)
-            # if game_over:
-            #     if event.type == KEYDOWN:
-            #         reset_game()
-            #     if event.type == JOYBUTTONDOWN:
-            #          if event.button == 0: # Check for button 0 specifically
-            #              reset_game()
 
+        # Update stars
+        update_stars(dt)
+        
         # Update Sprites
         all_sprites.update(dt, joystick)
 
@@ -555,6 +898,9 @@ while running:
                     print(f"Hit by asteroid type {asteroid.asteroid_type} (size: {asteroid.size_category}), dealing {asteroid.damage} damage!")
                     # Check if player died
                     if player.health <= 0:
+                        # Start transition to game over
+                        transition_timer = 0
+                        fade_alpha = 0
                         game_state = GAME_OVER
                     # Only apply damage from one asteroid if multiple hits in the same frame
                     break
@@ -564,6 +910,11 @@ while running:
 
         # Drawing (for PLAYING state)
         screen.fill(BACKGROUND_COLOR)
+        
+        # Draw stars
+        draw_stars()
+        
+        # Draw all sprites
         all_sprites.draw(screen)
 
         # Render score (English)
@@ -578,9 +929,7 @@ while running:
         show_game_over_screen(score)
         game_state = START # Go back to start screen after game over input
 
-    # --- Update Display (Common for all states if drawing happens in state funcs) ---
-    # This is handled within the show_ functions and the PLAYING state drawing block
-    # If needed, can have a final flip here, but current structure handles it.
+    # --- Update Display ---
     pygame.display.flip()
 
 # --- Quit Pygame ---
