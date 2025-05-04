@@ -22,6 +22,24 @@ HEALTH_BAR_COLOR = (0, 255, 0)  # Green
 HEALTH_BAR_BACKGROUND_COLOR = (100, 100, 100)  # Gray
 HEALTH_BAR_BORDER_COLOR = (255, 255, 255)  # White
 
+# Particle system constants
+ASTEROID_PARTICLE_COLORS = [
+    (255, 165, 0),    # Orange
+    (255, 140, 0),    # Dark Orange
+    (255, 69, 0),     # Red-Orange
+    (255, 215, 0),    # Gold
+    (255, 99, 71)     # Tomato
+]
+PLAYER_THRUSTER_COLORS = [
+    (0, 191, 255),    # Deep Sky Blue
+    (30, 144, 255),   # Dodger Blue
+    (65, 105, 225),   # Royal Blue
+    (100, 149, 237),  # Cornflower Blue
+    (135, 206, 250)   # Light Sky Blue
+]
+MAX_PARTICLES = 100   # Maximum number of particles in the system
+PARTICLE_LIFETIME = 1.0  # Seconds before a particle disappears
+
 # Background stars constants
 NUM_STARS = 100
 STAR_SIZES = [1, 2, 3]  # Different star sizes
@@ -163,6 +181,109 @@ title_font = pygame.font.Font(default_font_path, TITLE_FONT_SIZE)
 instruction_font = pygame.font.Font(default_font_path, INSTRUCTION_FONT_SIZE)
 countdown_font = pygame.font.Font(default_font_path, COUNTDOWN_FONT_SIZE)
 
+# --- Particle Class ---
+class Particle:
+    def __init__(self, x, y, color, velocity=(0, 0), size=2, lifetime=PARTICLE_LIFETIME, gravity=False, fade=True):
+        """Initialize a particle with position, color, and optional parameters."""
+        self.x = x
+        self.y = y
+        self.color = color
+        self.original_color = color  # Store original color for alpha calculations
+        self.velocity = Vector2(velocity)
+        self.size = size
+        self.lifetime = lifetime
+        self.age = 0.0
+        self.gravity = gravity
+        self.fade = fade
+        
+    def update(self, dt):
+        """Update the particle position and age."""
+        # Update position
+        self.x += self.velocity.x * dt
+        self.y += self.velocity.y * dt
+        
+        # Apply simple gravity if enabled
+        if self.gravity:
+            self.velocity.y += 30 * dt  # Gravity acceleration
+            
+        # Update age
+        self.age += dt
+        
+        # Return True if the particle is still alive
+        return self.age < self.lifetime
+        
+    def draw(self, surface):
+        """Draw the particle with optional size and alpha based on age."""
+        # Calculate alpha (transparency) based on age if fade is enabled
+        if self.fade:
+            # Fade out as the particle gets older
+            alpha = 255 * (1 - self.age / self.lifetime)
+            
+            # Create a copy of the color with new alpha
+            color_with_alpha = self.original_color
+            # Only apply alpha if using a surface with per-pixel alpha
+            if isinstance(surface, pygame.Surface) and surface.get_flags() & pygame.SRCALPHA:
+                r, g, b = self.original_color
+                color_with_alpha = (r, g, b, int(alpha))
+        else:
+            color_with_alpha = self.color
+            
+        # Draw the particle as a circle
+        if self.size <= 1:
+            surface.set_at((int(self.x), int(self.y)), color_with_alpha)
+        else:
+            pygame.draw.circle(surface, color_with_alpha, (int(self.x), int(self.y)), self.size)
+            
+# --- Particle System ---
+class ParticleSystem:
+    def __init__(self, max_particles=MAX_PARTICLES):
+        """Initialize an empty particle system."""
+        self.particles = []
+        self.max_particles = max_particles
+        
+    def add_particle(self, particle):
+        """Add a particle to the system, removing oldest if at capacity."""
+        if len(self.particles) >= self.max_particles:
+            # Remove the oldest particle if we're at capacity
+            self.particles.pop(0)
+        self.particles.append(particle)
+        
+    def emit_particles(self, x, y, color_range, count, velocity_range=None, 
+                      size_range=None, lifetime_range=None, gravity=False, fade=True):
+        """Emit multiple particles at once with randomized properties."""
+        for _ in range(count):
+            # Choose random color from the provided range
+            color = random.choice(color_range) if isinstance(color_range, list) else color_range
+            
+            # Set up velocity
+            vel_x, vel_y = 0, 0
+            if velocity_range:
+                vel_x = random.uniform(velocity_range[0][0], velocity_range[0][1])
+                vel_y = random.uniform(velocity_range[1][0], velocity_range[1][1])
+                
+            # Set up size
+            size = 2  # Default size
+            if size_range:
+                size = random.uniform(size_range[0], size_range[1])
+                
+            # Set up lifetime
+            lifetime = PARTICLE_LIFETIME  # Default lifetime
+            if lifetime_range:
+                lifetime = random.uniform(lifetime_range[0], lifetime_range[1])
+                
+            # Create and add the particle
+            particle = Particle(x, y, color, (vel_x, vel_y), size, lifetime, gravity, fade)
+            self.add_particle(particle)
+            
+    def update(self, dt):
+        """Update all particles, removing dead ones."""
+        self.particles = [p for p in self.particles if p.update(dt)]
+        
+    def draw(self, surface):
+        """Draw all particles to the surface."""
+        for particle in self.particles:
+            particle.draw(surface)
+
 # --- Star Class ---
 class Star:
     def __init__(self):
@@ -200,6 +321,10 @@ class MenuAsteroid:
         )
         self.image.set_colorkey((0, 0, 0))  # Make background transparent
         
+        # For particle effects
+        self.asteroid_type = random.randint(0, 6)  # Random asteroid type
+        self.radius = self.size // 2  # Radius for particle emission
+        
     def update(self, dt):
         # Move asteroid
         self.x += self.vel_x * dt
@@ -227,6 +352,60 @@ class MenuAsteroid:
         rect = rotated_image.get_rect(center=(self.x, self.y))
         # Draw the rotated image
         surface.blit(rotated_image, rect.topleft)
+        
+    def emit_fire_particles(self):
+        """Emit fire particles trailing behind the asteroid for menu animation."""
+        # Create velocity vector from x and y components
+        vel = Vector2(self.vel_x, self.vel_y)
+        
+        # If not moving, don't emit particles
+        if vel.length() == 0:
+            return
+            
+        # Normalized reverse of velocity for particle position
+        back_dir = -vel.normalize()
+        
+        # Position slightly offset from the asteroid center in the opposite direction of movement
+        offset_x = back_dir.x * (self.radius * 0.8)
+        offset_y = back_dir.y * (self.radius * 0.8)
+        
+        # Add some random spread perpendicular to movement direction
+        perp_dir = Vector2(-back_dir.y, back_dir.x)  # Perpendicular vector
+        spread = random.uniform(-0.5, 0.5)
+        offset_x += perp_dir.x * self.radius * spread
+        offset_y += perp_dir.y * self.radius * spread
+        
+        # Emission position
+        emit_x = self.x + offset_x
+        emit_y = self.y + offset_y
+        
+        # Fire velocity is opposite of asteroid movement with some variation
+        vel_base = -vel * 0.3  # 30% of asteroid speed in opposite direction
+        vel_range = (
+            (vel_base.x - 15, vel_base.x + 15),  # X velocity range
+            (vel_base.y - 15, vel_base.y + 15)   # Y velocity range
+        )
+        
+        # Particle size and count based on asteroid type
+        particle_count = 3 + (self.asteroid_type // 2)  # 3-6 particles based on type
+        size_multiplier = 0.6 + (self.asteroid_type * 0.1)  # Bigger for higher types
+        size_base = 2 * size_multiplier
+        size_range = (size_base * 0.6, size_base * 1.4)
+        
+        # Lifetime based on asteroid type (more dangerous = longer fire trails)
+        lifetime_range = (0.2 + (self.asteroid_type * 0.05), 0.4 + (self.asteroid_type * 0.1))
+        
+        # Emit particles
+        particle_system.emit_particles(
+            emit_x, emit_y,
+            ASTEROID_PARTICLE_COLORS,
+            particle_count,
+            vel_range,
+            size_range,
+            lifetime_range,
+            gravity=False,
+            fade=True
+        )
 
 # --- Menu Player Class ---
 class MenuPlayer:
@@ -278,7 +457,17 @@ class Player(pygame.sprite.Sprite):
         # Store original image for animations
         self.original_image = self.image.copy()
         self.pos = Vector2(pos)
-        self.speed = PLAYER_SPEED
+        self.velocity = Vector2(0, 0)  # Current velocity (for smooth movement)
+        self.target_velocity = Vector2(0, 0)  # Target velocity
+        self.acceleration = 1200  # Acceleration rate (pixels/second²)
+        self.deceleration = 900   # Deceleration rate (pixels/second²)
+        self.max_speed = PLAYER_SPEED
+        
+        # Thrust animation variables
+        self.thrusting = False
+        self.thrust_direction = Vector2(0, 0)
+        self.particle_timer = 0
+        self.particle_interval = 0.02  # Emit particles every 0.02 seconds
         
         # Initialize player health
         self.health = PLAYER_MAX_HEALTH
@@ -290,6 +479,7 @@ class Player(pygame.sprite.Sprite):
         self.is_flashing = False
 
     def update(self, dt, joystick=None): # Added joystick update logic
+        # Handle player input and calculate target velocity
         keys = pygame.key.get_pressed()
         direction = Vector2(0, 0)
 
@@ -313,16 +503,52 @@ class Player(pygame.sprite.Sprite):
             if abs(axis_y) > 0.2:
                 direction.y = axis_y
 
-        # Normalize diagonal movement and apply speed * dt
+        # Normalize diagonal movement
         if direction.length() > 0:
-            direction = direction.normalize()
-            self.pos += direction * self.speed * dt
-
+            self.thrusting = True  # Player is actively thrusting
+            self.thrust_direction = direction.normalize()
+            self.target_velocity = self.thrust_direction * self.max_speed
+        else:
+            self.thrusting = False
+            self.target_velocity = Vector2(0, 0)
+            
+        # Smooth movement with acceleration and deceleration
+        if self.thrusting:
+            # Accelerate toward target velocity
+            if self.velocity.length() < self.target_velocity.length():
+                accel_vector = self.thrust_direction * self.acceleration * dt
+                self.velocity += accel_vector
+                # Ensure we don't exceed the target velocity
+                if self.velocity.length() > self.target_velocity.length():
+                    self.velocity = self.target_velocity.copy()
+        else:
+            # Decelerate when not thrusting
+            if self.velocity.length() > 0:
+                # Calculate deceleration vector in the opposite direction of movement
+                if self.velocity.length() > 0:  # Ensure we have a non-zero velocity
+                    decel_dir = -self.velocity.normalize()
+                    decel_amount = min(self.deceleration * dt, self.velocity.length())
+                    self.velocity += decel_dir * decel_amount
+                    
+                    # Stop completely if velocity is very small
+                    if self.velocity.length() < 10:
+                        self.velocity = Vector2(0, 0)
+        
+        # Apply velocity to position
+        self.pos += self.velocity * dt
+        
         # Keep player on screen
         self.pos.x = max(PLAYER_SIZE // 2, min(SCREEN_WIDTH - PLAYER_SIZE // 2, self.pos.x))
         self.pos.y = max(PLAYER_SIZE // 2, min(SCREEN_HEIGHT - PLAYER_SIZE // 2, self.pos.y))
 
         self.rect.center = self.pos
+        
+        # Emit thruster particles if thrusting
+        if self.thrusting:
+            self.particle_timer += dt
+            if self.particle_timer >= self.particle_interval:
+                self.particle_timer = 0
+                self.emit_thruster_particles()
         
         # Update invulnerability timer
         if self.invulnerable:
@@ -363,6 +589,61 @@ class Player(pygame.sprite.Sprite):
             
             return True  # Damage was applied
         return False  # Player was invulnerable, no damage
+        
+    def emit_thruster_particles(self):
+        """Emit thruster particles behind the player in the opposite direction of movement."""
+        if not self.thrusting or self.thrust_direction.length() == 0:
+            return
+            
+        # Reverse thrust direction to get the back of the ship
+        back_dir = -self.thrust_direction
+        
+        # Calculate emission offset from the player's center
+        offset_x = back_dir.x * (self.radius * 0.8)  # 80% of the player's radius
+        offset_y = back_dir.y * (self.radius * 0.8)
+        
+        # Add some random spread perpendicular to the thrust direction
+        perp_dir = Vector2(-back_dir.y, back_dir.x)  # Perpendicular vector
+        spread_factor = 0.4
+        offset_x += perp_dir.x * self.radius * random.uniform(-spread_factor, spread_factor)
+        offset_y += perp_dir.y * self.radius * random.uniform(-spread_factor, spread_factor)
+        
+        # Emission position
+        emit_x = self.pos.x + offset_x
+        emit_y = self.pos.y + offset_y
+        
+        # Velocity is opposite of player movement but faster
+        vel_magnitude = random.uniform(100, 200)  # Speed of particles
+        vel_x = back_dir.x * vel_magnitude
+        vel_y = back_dir.y * vel_magnitude
+        
+        # Add some random variation to velocity
+        vel_variation = 30
+        vel_range = (
+            (vel_x - vel_variation, vel_x + vel_variation),
+            (vel_y - vel_variation, vel_y + vel_variation)
+        )
+        
+        # Size range for thruster particles
+        size_range = (1.5, 3.5)
+        
+        # Lifetime range for thruster particles
+        lifetime_range = (0.2, 0.4)
+        
+        # Number of particles to emit depends on speed
+        particle_count = int(3 + (self.velocity.length() / self.max_speed) * 3)
+        
+        # Emit thruster particles
+        particle_system.emit_particles(
+            emit_x, emit_y,
+            PLAYER_THRUSTER_COLORS,
+            particle_count,
+            vel_range,
+            size_range,
+            lifetime_range,
+            gravity=False,
+            fade=True
+        )
 
 # --- Helper Functions --- 
 def weighted_random_choice(weights_dict):
@@ -468,11 +749,39 @@ class Asteroid(pygame.sprite.Sprite):
         
         # Store size category for future use (e.g., damage calculation)
         self.size_category = self.size_category
-
+        
+        # Rotation variables for asteroids
+        self.angle = 0
+        self.rotation_speed = random.uniform(-60, 60)  # Degrees per second
+        
+        # Particle emission variables
+        self.particle_timer = 0
+        self.particle_interval = 0.05  # Emit particles every 0.05 seconds
+        
+        # Higher asteroid types have more intense fire effects
+        self.particle_count = min(3 + self.asteroid_type, 8)  # 3-8 particles per emission
+        self.particle_size_multiplier = 0.6 + (self.asteroid_type * 0.1)  # Size increases with type
+        
     def update(self, dt, joystick=None): # Added joystick=None to match Player signature
+        # Update position
         self.pos += self.vel * dt
-        self.rect.center = self.pos # Update rect center from pos
-
+        
+        # Rotate the asteroid
+        self.angle += self.rotation_speed * dt
+        self.angle %= 360
+        
+        # Apply rotation to image
+        self.image = pygame.transform.rotate(self.original_image, self.angle)
+        
+        # Keep the same center point after rotation
+        self.rect = self.image.get_rect(center=self.pos)
+        
+        # Emit fire particles behind the asteroid
+        self.particle_timer += dt
+        if self.particle_timer >= self.particle_interval:
+            self.particle_timer = 0
+            self.emit_fire_particles()
+        
         # Remove asteroids that go far off-screen
         buffer = max(self.rect.width, self.rect.height) * 2
         if (self.rect.right < -buffer or
@@ -480,10 +789,62 @@ class Asteroid(pygame.sprite.Sprite):
             self.rect.bottom < -buffer or
             self.rect.top > SCREEN_HEIGHT + buffer):
             self.kill() # Remove sprite from all groups
+            
+    def emit_fire_particles(self):
+        """Emit fire particles trailing behind the asteroid."""
+        # Calculate position offset (opposite of velocity)
+        if self.vel.length() == 0:
+            return
+            
+        # Normalized reverse of velocity for particle position
+        back_dir = -self.vel.normalize()
+        
+        # Position slightly offset from the asteroid center in the opposite direction of movement
+        offset_x = back_dir.x * (self.radius * 0.8)
+        offset_y = back_dir.y * (self.radius * 0.8)
+        
+        # Add some random spread perpendicular to movement direction
+        perp_dir = Vector2(-back_dir.y, back_dir.x)  # Perpendicular vector
+        spread = random.uniform(-0.5, 0.5)
+        offset_x += perp_dir.x * self.radius * spread
+        offset_y += perp_dir.y * self.radius * spread
+        
+        # Emission position
+        emit_x = self.pos.x + offset_x
+        emit_y = self.pos.y + offset_y
+        
+        # Fire velocity is opposite of asteroid movement with some variation
+        vel_base = -self.vel * 0.3  # 30% of asteroid speed in opposite direction
+        vel_range = (
+            (vel_base.x - 15, vel_base.x + 15),  # X velocity range
+            (vel_base.y - 15, vel_base.y + 15)   # Y velocity range
+        )
+        
+        # Size based on asteroid type
+        size_base = 2 * self.particle_size_multiplier
+        size_range = (size_base * 0.6, size_base * 1.4)
+        
+        # Lifetime based on asteroid type (more dangerous = longer fire trails)
+        lifetime_range = (0.2 + (self.asteroid_type * 0.05), 0.4 + (self.asteroid_type * 0.1))
+        
+        # Emit particles
+        particle_system.emit_particles(
+            emit_x, emit_y,
+            ASTEROID_PARTICLE_COLORS,
+            self.particle_count,
+            vel_range,
+            size_range,
+            lifetime_range,
+            gravity=False,
+            fade=True
+        )
 
 # --- Sprite Groups ---
 all_sprites = pygame.sprite.Group()
 asteroids = pygame.sprite.Group()
+
+# Create the particle system (moved up to be defined before any usage)
+particle_system = ParticleSystem(max_particles=500)  # Increased for more particle effects
 
 # --- Game Variables ---
 # Create the Player sprite instance
@@ -508,7 +869,7 @@ else:
 
 # --- Game Functions ---
 def reset_game():
-    global score, game_over, asteroid_spawn_timer, next_spawn_interval, player, fade_alpha, transition_timer, stars
+    global score, game_over, asteroid_spawn_timer, next_spawn_interval, player, fade_alpha, transition_timer, stars, particle_system
     all_sprites.empty() # Clear all sprites
     asteroids.empty()   # Clear asteroids specifically
     score = 0
@@ -517,6 +878,9 @@ def reset_game():
     next_spawn_interval = random.uniform(ASTEROID_SPAWN_RATE * 0.5, ASTEROID_SPAWN_RATE * 1.5) # Reset spawn interval
     fade_alpha = 255
     transition_timer = 0
+    
+    # Clear particles
+    particle_system = ParticleSystem(max_particles=500)
 
     # Recreate player and add to groups
     player = Player((SCREEN_WIDTH // 2, SCREEN_HEIGHT - PLAYER_SIZE * 1.5))
@@ -574,7 +938,7 @@ def draw_stars():
 
 # --- Screen Functions ---
 def show_start_screen():
-    global menu_asteroids, menu_player, transition_timer, fade_alpha
+    global menu_asteroids, menu_player, transition_timer, fade_alpha, particle_system
     
     # Initialize menu elements if they don't exist
     if 'menu_asteroids' not in globals():
@@ -584,6 +948,9 @@ def show_start_screen():
     if 'menu_player' not in globals():
         global menu_player
         menu_player = MenuPlayer()
+    
+    # Reset particle system
+    particle_system = ParticleSystem(max_particles=500)
     
     # Change to menu music if not already playing
     if not hasattr(show_start_screen, 'music_started'):
@@ -625,19 +992,50 @@ def show_start_screen():
 
     waiting = True
     while waiting:
-        clock.tick(60) # Keep clock ticking
+        dt = clock.tick(60) / 1000.0
         
         # Update stars
-        update_stars(1/60)
+        update_stars(dt)
         
-        # Update menu animations
+        # Update particles
+        particle_system.update(dt)
+        
+        # Update menu animations and emit particles
         for asteroid in menu_asteroids:
-            asteroid.update(1/60)
-        menu_player.update(1/60)
+            asteroid.update(dt)
+            # Emit particles occasionally from menu asteroids
+            if random.random() < 0.2:  # 20% chance each frame
+                asteroid.emit_fire_particles()
+                
+        menu_player.update(dt)
+        
+        # Emit thruster particles from menu player too
+        if random.random() < 0.3:  # 30% chance per frame
+            # Calculate particle position behind player
+            angle_rad = math.radians(menu_player.angle)
+            back_x = menu_player.x - math.cos(angle_rad) * menu_player.radius * 0.7
+            back_y = menu_player.y - math.sin(angle_rad) * menu_player.radius * 0.7
+            
+            # Emit thruster particles
+            particle_system.emit_particles(
+                back_x, back_y,
+                PLAYER_THRUSTER_COLORS,
+                3,  # Number of particles
+                ((math.cos(angle_rad) * -50, math.cos(angle_rad) * -100),  # X velocity
+                 (math.sin(angle_rad) * -50, math.sin(angle_rad) * -100)), # Y velocity
+                (1.5, 3.0),  # Size range
+                (0.3, 0.6),  # Lifetime range
+                gravity=False,
+                fade=True
+            )
         
         # Redraw screen
         screen.fill(BACKGROUND_COLOR)
         draw_stars()
+        
+        # Draw particles first (behind everything)
+        particle_system.draw(screen)
+        
         for asteroid in menu_asteroids:
             asteroid.draw(screen)
         menu_player.draw(screen)
@@ -651,7 +1049,7 @@ def show_start_screen():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
-                sys.exit() # Exit directly if quit from start screen
+                sys.exit()
             if event.type == KEYDOWN or event.type == JOYBUTTONDOWN:
                 # Begin transition to countdown
                 fade_alpha = 0
@@ -660,10 +1058,13 @@ def show_start_screen():
 
 def show_countdown():
     """Show countdown before gameplay starts."""
-    global transition_timer, fade_alpha
+    global transition_timer, fade_alpha, particle_system
     
     # Change to game music
     change_music(GAME_MUSIC)
+    
+    # Reset the particle system for a fresh start
+    particle_system = ParticleSystem(max_particles=500)
     
     countdown_start_time = pygame.time.get_ticks() / 1000  # Current time in seconds
     
@@ -693,11 +1094,17 @@ def show_countdown():
         # Update stars
         update_stars(dt)
         
+        # Update particle system
+        particle_system.update(dt)
+        
         # Clear screen
         screen.fill(BACKGROUND_COLOR)
         
         # Draw stars
         draw_stars()
+        
+        # Draw particles behind sprites
+        particle_system.draw(screen)
         
         # Draw the countdown number
         if count_num > 0:
@@ -724,13 +1131,16 @@ def show_countdown():
 
 def show_game_over_screen(score):
     """Show the game over screen with score."""
-    global transition_timer, fade_alpha, menu_asteroids
+    global transition_timer, fade_alpha, menu_asteroids, particle_system
     
     # Change to game over music
     change_music(GAME_OVER_MUSIC)
     
     # Initialize menu asteroids for animation
     menu_asteroids = [MenuAsteroid() for _ in range(10)]
+    
+    # Start with a fresh particle system
+    particle_system = ParticleSystem(max_particles=500)
     
     # Start with a fade-in
     transition_timer = 0
@@ -778,15 +1188,24 @@ def show_game_over_screen(score):
         # Update stars
         update_stars(dt)
         
-        # Update menu asteroids
+        # Update particles
+        particle_system.update(dt)
+        
+        # Update menu asteroids and emit particles
         for asteroid in menu_asteroids:
             asteroid.update(dt)
+            # Emit particles occasionally
+            if random.random() < 0.2:  # 20% chance each frame
+                asteroid.emit_fire_particles()
         
         # Clear screen
         screen.fill(BACKGROUND_COLOR)
         
         # Draw stars
         draw_stars()
+        
+        # Draw particles
+        particle_system.draw(screen)
         
         # Draw asteroids
         for asteroid in menu_asteroids:
@@ -876,6 +1295,9 @@ while running:
         # Update stars
         update_stars(dt)
         
+        # Update particle system
+        particle_system.update(dt)
+        
         # Update Sprites
         all_sprites.update(dt, joystick)
 
@@ -913,6 +1335,9 @@ while running:
         
         # Draw stars
         draw_stars()
+        
+        # Draw particles behind sprites
+        particle_system.draw(screen)
         
         # Draw all sprites
         all_sprites.draw(screen)
