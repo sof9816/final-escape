@@ -6,7 +6,7 @@ yarn-debug.log*
 yarn-error.log*
 dev-debug.log
 *.pyc
-
+mcp.json
 # Dependency directories
 node_modules/
 
