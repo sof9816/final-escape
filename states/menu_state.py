@@ -41,7 +41,7 @@ class MenuState:
             self.instruction_text, True, (255, 255, 255)
         )
         self.instruction_rect = self.instruction_surface.get_rect(
-            center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 100)
+            center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
         )
         
         # Animation for instruction text

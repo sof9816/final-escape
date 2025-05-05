@@ -43,13 +43,8 @@ class GameOverState:
         self.delay_timer = 0
         self.delay_threshold = 1.0  # 1 second before allowing transition
         
-        # IMPROVED: Add a transition flag that will be checked in multiple places
+        # Transition flag
         self.transition_requested = False
-        # Keep track of the last time we checked for input
-        self.last_input_check = 0
-        # Add a direct transition counter as a failsafe
-        self.direct_transition_timer = 0
-        self.direct_transition_threshold = 3.0  # Force transition after 3 seconds of being ready
         
         print("GameOverState initialized")
         
@@ -63,7 +58,6 @@ class GameOverState:
         self.allow_transition = False
         self.delay_timer = 0
         self.transition_requested = False
-        self.direct_transition_timer = 0
         print(f"Final score set: {score}")
         
     def handle_event(self, event):
@@ -79,11 +73,11 @@ class GameOverState:
         if not self.allow_transition:
             return None
             
-        # IMPROVED: Check for more event types
+        # Check for any input 
         if (event.type == pygame.KEYDOWN or 
             event.type == pygame.MOUSEBUTTONDOWN or
             event.type == pygame.JOYBUTTONDOWN):
-            print("Input detected in game over state via event - transitioning to menu")
+            print("Input detected in game over state - transitioning to menu")
             self.transition_requested = True
             return STATE_MENU
             
@@ -105,28 +99,13 @@ class GameOverState:
                 self.allow_transition = True
                 print("Game over state ready for transition")
         
-        # IMPROVED: Once we're allowed to transition, start the direct transition timer
-        if self.allow_transition:
-            self.direct_transition_timer += dt
-            
-            # IMPROVED: Check for input every frame once we're ready
-            # This is more reliable than waiting for events
-            if any(pygame.key.get_pressed()) or pygame.mouse.get_pressed()[0]:
-                print("Input detected in game over state via polling - transitioning to menu")
-                self.transition_requested = True
-                
-            # IMPROVED: Force transition after threshold as a failsafe
-            if self.direct_transition_timer >= self.direct_transition_threshold:
-                print("Direct transition timer expired - forcing transition to menu")
-                self.transition_requested = True
-        
         # Update stars
         self.star_field.update(dt)
         
         # Update particles
         self.particle_system.update(dt)
         
-        # IMPROVED: Check if transition was requested from any method
+        # Check if transition was requested via event
         if self.transition_requested:
             print("Transition requested - returning to menu from game over state")
             self.transition_requested = False  # Reset flag to prevent multiple transitions

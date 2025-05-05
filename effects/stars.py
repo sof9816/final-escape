@@ -18,6 +18,7 @@ class Star:
         self.size = random.choice(STAR_SIZES)
         self.color = random.choice(STAR_COLORS)
         self.speed = random.choice(STAR_SPEEDS)
+        self.opacity = 153  # 60% of 255 for reduced opacity
         
     def update(self, dt):
         """Update the star position.
@@ -39,7 +40,17 @@ class Star:
         Args:
             surface: Pygame surface to draw on
         """
-        pygame.draw.circle(surface, self.color, (int(self.x), int(self.y)), self.size)
+        # Create a semitransparent surface for the star
+        star_surface = pygame.Surface((self.size * 2 + 1, self.size * 2 + 1), pygame.SRCALPHA)
+        # Draw the star with reduced opacity
+        pygame.draw.circle(
+            star_surface, 
+            (*self.color, self.opacity),  # RGB + Alpha 
+            (self.size + 1, self.size + 1), 
+            self.size
+        )
+        # Blit the transparent surface to the main surface
+        surface.blit(star_surface, (int(self.x) - self.size - 1, int(self.y) - self.size - 1))
 
 class StarField:
     """Manager for a field of background stars."""
