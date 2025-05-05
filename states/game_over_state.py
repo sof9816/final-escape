@@ -41,10 +41,15 @@ class GameOverState:
         # Simple delay to prevent accidental key presses
         self.allow_transition = False
         self.delay_timer = 0
-        self.delay_threshold = 1.0  # 1 second before allowing transition
+        self.delay_threshold = 1.0  # 1 second before allowing input
         
         # Transition flag
         self.transition_requested = False
+        
+        # Instruction text animation
+        self.instruction_alpha = 255
+        self.fade_direction = -1  # -1 for fade out, 1 for fade in
+        self.fade_speed = 200  # Alpha change per second
         
         print("GameOverState initialized")
         
@@ -105,6 +110,15 @@ class GameOverState:
         # Update particles
         self.particle_system.update(dt)
         
+        # Update instruction text animation
+        self.instruction_alpha += self.fade_direction * self.fade_speed * dt
+        if self.instruction_alpha <= 100:
+            self.instruction_alpha = 100
+            self.fade_direction = 1
+        elif self.instruction_alpha >= 255:
+            self.instruction_alpha = 255
+            self.fade_direction = -1
+        
         # Check if transition was requested via event
         if self.transition_requested:
             print("Transition requested - returning to menu from game over state")
@@ -128,27 +142,27 @@ class GameOverState:
         # Draw particles
         self.particle_system.draw(surface)
         
-        # Draw "Game Over" text
-        game_over_text = "Game Over"
-        game_over_surface = self.game_over_font.render(game_over_text, True, SCORE_COLOR)
+        # Draw game over text
+        game_over_text = "GAME OVER"
+        game_over_surface = self.game_over_font.render(game_over_text, True, (255, 255, 255))
         game_over_rect = game_over_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 3))
         surface.blit(game_over_surface, game_over_rect)
         
-        # Draw death message
-        death_text = "Your ship was destroyed!"
-        death_surface = self.instruction_font.render(death_text, True, SCORE_COLOR)
-        death_rect = death_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
-        surface.blit(death_surface, death_rect)
-        
-        # Draw final score
-        score_text = f"Final Score: {int(self.final_score)}"
-        score_surface = self.instruction_font.render(score_text, True, SCORE_COLOR)
-        score_rect = score_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 40))
+        # Draw score
+        score_text = f"Score: {int(self.final_score)}"
+        score_surface = self.game_over_font.render(score_text, True, SCORE_COLOR)
+        score_rect = score_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
         surface.blit(score_surface, score_rect)
         
-        # Only show restart instruction after delay
-        if self.allow_transition:
-            restart_text = "Press any key to play again"
-            restart_surface = self.instruction_font.render(restart_text, True, SCORE_COLOR)
-            restart_rect = restart_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 100))
-            surface.blit(restart_surface, restart_rect) 
+        # Draw instruction text with pulsing effect
+        instruction_text = "Press any key to return to menu"
+        instruction_surface = self.instruction_font.render(instruction_text, True, (255, 255, 255))
+        instruction_rect = instruction_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT * 3 // 4))
+        
+        # Create a surface with alpha for the pulsing effect
+        alpha_surface = pygame.Surface(instruction_surface.get_size(), pygame.SRCALPHA)
+        alpha_surface.fill((255, 255, 255, 0))
+        alpha_surface.blit(instruction_surface, (0, 0))
+        alpha_surface.set_alpha(int(self.instruction_alpha))
+        
+        surface.blit(alpha_surface, instruction_rect) 

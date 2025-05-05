@@ -29,31 +29,35 @@ class Star:
         # Move stars downward
         self.y += self.speed * dt
         
-        # Wrap around when off-screen
+        # If star is offscreen, respawn at the top
         if self.y > SCREEN_HEIGHT:
             self.y = 0
             self.x = random.randint(0, SCREEN_WIDTH)
             
     def draw(self, surface):
-        """Draw the star on the given surface.
+        """Draw the star to the surface.
         
         Args:
             surface: Pygame surface to draw on
         """
-        # Create a semitransparent surface for the star
-        star_surface = pygame.Surface((self.size * 2 + 1, self.size * 2 + 1), pygame.SRCALPHA)
-        # Draw the star with reduced opacity
-        pygame.draw.circle(
-            star_surface, 
-            (*self.color, self.opacity),  # RGB + Alpha 
-            (self.size + 1, self.size + 1), 
-            self.size
-        )
-        # Blit the transparent surface to the main surface
-        surface.blit(star_surface, (int(self.x) - self.size - 1, int(self.y) - self.size - 1))
+        # Apply opacity
+        color_with_opacity = (*self.color, self.opacity)
+        
+        # Draw the star as a small rect or circle based on size
+        if self.size == 1:
+            # Draw tiny star as a single pixel with opacity
+            pixel_surface = pygame.Surface((1, 1), pygame.SRCALPHA)
+            pixel_surface.fill(color_with_opacity)
+            surface.blit(pixel_surface, (int(self.x), int(self.y)))
+        else:
+            # Draw larger star as a circle with opacity
+            radius = self.size // 2
+            star_surface = pygame.Surface((self.size + 2, self.size + 2), pygame.SRCALPHA)
+            pygame.draw.circle(star_surface, color_with_opacity, (radius + 1, radius + 1), radius)
+            surface.blit(star_surface, (int(self.x), int(self.y)))
 
 class StarField:
-    """Manager for a field of background stars."""
+    """Collection of stars for background effect."""
     
     def __init__(self, num_stars=NUM_STARS):
         """Initialize the star field.
@@ -61,8 +65,10 @@ class StarField:
         Args:
             num_stars: Number of stars to create
         """
-        self.stars = [Star() for _ in range(num_stars)]
-        
+        self.stars = []
+        for _ in range(num_stars):
+            self.stars.append(Star())
+    
     def update(self, dt):
         """Update all stars.
         
@@ -71,7 +77,7 @@ class StarField:
         """
         for star in self.stars:
             star.update(dt)
-            
+    
     def draw(self, surface):
         """Draw all stars.
         
@@ -79,4 +85,14 @@ class StarField:
             surface: Pygame surface to draw on
         """
         for star in self.stars:
-            star.draw(surface) 
+            star.draw(surface)
+            
+    def set_opacity(self, opacity_percent):
+        """Set the opacity for all stars.
+        
+        Args:
+            opacity_percent: Opacity as a percentage (0-100)
+        """
+        opacity = int(opacity_percent * 255 / 100)
+        for star in self.stars:
+            star.opacity = opacity 

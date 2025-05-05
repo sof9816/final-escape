@@ -18,24 +18,36 @@ from engine.utils import weighted_random_choice
 class Asteroid(pygame.sprite.Sprite):
     """Asteroid class representing obstacles the player must avoid."""
     
-    def __init__(self, particle_system, asset_loader):
+    def __init__(self, particle_system, asset_loader, type_id=None, size_category=None, difficulty="Normal Space"):
         """Initialize an asteroid with random properties.
         
         Args:
             particle_system: ParticleSystem instance for visual effects
             asset_loader: AssetLoader instance for loading images
+            type_id: Optional specific asteroid type (0-6) to use
+            size_category: Optional specific size category to use
+            difficulty: Current game difficulty level
         """
         super().__init__()
+        
+        # Store the difficulty
+        self.difficulty = difficulty
         
         # Particle system for effects
         self.particle_system = particle_system
         
-        # Determine the asteroid type (0-6) based on weighted probability
-        self.asteroid_type = weighted_random_choice(ASTEROID_TYPE_WEIGHTS)
+        # Determine the asteroid type (0-6) based on weighted probability or provided value
+        if type_id is not None:
+            self.asteroid_type = type_id
+        else:
+            self.asteroid_type = weighted_random_choice(ASTEROID_TYPE_WEIGHTS)
         
-        # Determine size category based on asteroid type restrictions
-        allowed_sizes = ASTEROID_SIZE_RESTRICTIONS[self.asteroid_type]
-        self.size_category = random.choice(allowed_sizes)
+        # Determine size category based on asteroid type restrictions and provided value
+        if size_category is not None:
+            self.size_category = size_category
+        else:
+            allowed_sizes = ASTEROID_SIZE_RESTRICTIONS[self.asteroid_type]
+            self.size_category = random.choice(allowed_sizes)
         
         # Calculate actual size based on category
         size_range = ASTEROID_SIZES[self.size_category]
@@ -49,6 +61,10 @@ class Asteroid(pygame.sprite.Sprite):
             asteroid_path, 
             scale=(self.actual_size, self.actual_size)
         )
+        
+        # Add difficulty-based visual effects
+        self._apply_difficulty_effects()
+        
         self.image = self.image_original.copy()
         
         # Determine spawn position (outside screen edges)
@@ -100,6 +116,68 @@ class Asteroid(pygame.sprite.Sprite):
         self.particle_cooldown = 0
         self.particle_rate = 0.08  # Seconds between particle emissions
         
+    def _apply_difficulty_effects(self):
+        """Apply visual effects to asteroids based on difficulty level."""
+        # Skip for lowest difficulty
+        if self.difficulty == "Empty Space":
+            return
+            
+        # Define difficulty-based color tinting
+        difficulty_tints = {
+            "Normal Space": None,  # No tint for normal
+            "We did not agree on that": (255, 220, 150, 50),  # Slight orange tint
+            "You kidding": (255, 150, 100, 80),  # Orange-red tint
+            "Hell No!!!": (255, 100, 100, 100)   # Red tint
+        }
+        
+        tint = difficulty_tints.get(self.difficulty)
+        if tint:
+            # Create a tint surface
+            tint_surface = pygame.Surface(self.image_original.get_size(), pygame.SRCALPHA)
+            tint_surface.fill(tint)
+            
+            # Apply the tint
+            self.image_original.blit(tint_surface, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
+            
+        # Add glow for higher difficulties
+        if self.difficulty in ["You kidding", "Hell No!!!"]:
+            # Create larger glow surface
+            glow_size = int(self.actual_size * 1.2)
+            glow_surface = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+            
+            # Define glow color based on asteroid type
+            glow_alpha = 100 if self.difficulty == "Hell No!!!" else 60
+            if self.asteroid_type >= 5:  # Most dangerous asteroids
+                glow_color = (255, 50, 50, glow_alpha)  # Red glow
+            elif self.asteroid_type >= 3:
+                glow_color = (255, 150, 50, glow_alpha)  # Orange glow
+            else:
+                glow_color = (255, 200, 50, glow_alpha)  # Yellow glow
+                
+            # Draw the glow
+            pygame.draw.circle(
+                glow_surface,
+                glow_color,
+                (glow_size // 2, glow_size // 2),
+                glow_size // 2
+            )
+            
+            # Create a larger image to accommodate the glow
+            temp_img = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+            
+            # Center the original image on the temp surface
+            orig_rect = self.image_original.get_rect(center=(glow_size // 2, glow_size // 2))
+            
+            # Draw glow first, then original image
+            temp_img.blit(glow_surface, (0, 0))
+            temp_img.blit(self.image_original, orig_rect)
+            
+            # Update image_original with the new glowing version
+            self.image_original = temp_img
+            
+            # Update radius for collision to remain accurate to the asteroid, not the glow
+            self.radius = self.actual_size // 2
+    
     def update(self, dt, joystick=None):
         """Update the asteroid position and effects.
         
@@ -131,7 +209,7 @@ class Asteroid(pygame.sprite.Sprite):
             self.particle_cooldown = self.particle_rate
     
     def emit_fire_particles(self):
-        """Emit fire particle effects behind the asteroid based on its type."""
+        """Emit fire particle effects behind the asteroid based on its type and difficulty."""
         if not self.particle_system:
             return
             
@@ -141,8 +219,20 @@ class Asteroid(pygame.sprite.Sprite):
         # Calculate the direction opposite to movement (where the trail should go)
         trail_direction = -velocity_direction
         
-        # Calculate base particle count based on asteroid type
+        # Calculate base particle count based on asteroid type and difficulty
         base_count = 1 + self.asteroid_type // 2  # 1-4 base particles depending on type
+        
+        # Increase particle count for higher difficulties
+        difficulty_particle_multipliers = {
+            "Empty Space": 0.5,
+            "Normal Space": 1.0,
+            "We did not agree on that": 1.5,
+            "You kidding": 2.0,
+            "Hell No!!!": 3.0
+        }
+        
+        particle_multiplier = difficulty_particle_multipliers.get(self.difficulty, 1.0)
+        final_count = max(1, int(base_count * particle_multiplier))
         
         # Calculate cone properties
         cone_width_factor = 0.4  # Controls width of the cone at its base
@@ -153,7 +243,7 @@ class Asteroid(pygame.sprite.Sprite):
         perp_vector = Vector2(math.cos(perp_angle), math.sin(perp_angle))
         
         # Emit particles to form the cone shape
-        for i in range(base_count):
+        for i in range(final_count):
             # For each base particle, emit a small cluster to form the cone
             cluster_size = 2  # Number of particles in each cluster
             

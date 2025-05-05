@@ -138,12 +138,18 @@ class AssetLoader:
             volume: Volume level (0.0 to 1.0)
             
         Returns:
-            Loaded pygame.mixer.Sound
+            Loaded pygame.mixer.Sound or None if file doesn't exist
         """
         # Check if already cached
         if path in self.sounds:
             return self.sounds[path]
         
+        # Check if the file exists
+        if not os.path.exists(path):
+            print(f"Sound file not found: {path}")
+            self.sounds[path] = None  # Cache the missing sound to avoid repeated file checks
+            return None
+            
         try:
             sound = pygame.mixer.Sound(path)
             sound.set_volume(volume)
@@ -154,6 +160,7 @@ class AssetLoader:
             
         except pygame.error as e:
             print(f"Error loading sound {path}: {e}")
+            self.sounds[path] = None  # Cache the failed sound to avoid repeated errors
             return None
     
     def play_music(self, music_path, volume=0.5, loops=-1, fade_ms=1000):
@@ -275,6 +282,12 @@ class AssetLoader:
                 "menu": os.path.join(sound_dir, "Lone Knight in the Stars(Menu Scene).ogg"),
                 "game": os.path.join(sound_dir, "Pixel Knight Asteroid Chase(Game Scene).ogg"),
                 "game_over": os.path.join(sound_dir, "Asteroid Knight(Game Over).ogg")
+            },
+            
+            # Sound effects
+            "sounds": {
+                "menu_navigate": self.load_sound(os.path.join(sound_dir, "menu_navigate.wav"), volume=0.4),
+                "menu_select": self.load_sound(os.path.join(sound_dir, "menu_select.wav"), volume=0.5)
             },
             
             # Fonts

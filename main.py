@@ -8,7 +8,8 @@ import pygame
 import sys
 from constants import (
     SCREEN_WIDTH, SCREEN_HEIGHT, STATE_MENU, STATE_COUNTDOWN, 
-    STATE_PLAYING, STATE_GAME_OVER, FADE_DURATION, MUSIC_FADE_DURATION
+    STATE_PLAYING, STATE_GAME_OVER, STATE_SETTINGS,
+    FADE_DURATION, MUSIC_FADE_DURATION
 )
 from engine.asset_loader import AssetLoader
 from engine.text_renderer import TextRenderer
@@ -62,7 +63,8 @@ class Game:
             STATE_MENU: "MENU",
             STATE_COUNTDOWN: "COUNTDOWN",
             STATE_PLAYING: "PLAYING",
-            STATE_GAME_OVER: "GAME_OVER"
+            STATE_GAME_OVER: "GAME_OVER",
+            STATE_SETTINGS: "SETTINGS"
         }
         
         # Start the menu music
@@ -110,6 +112,9 @@ class Game:
                     new_state = self.game_state.handle_event(event)
                 elif self.current_state == STATE_GAME_OVER:
                     new_state = self.game_over_state.handle_event(event)
+                elif self.current_state == STATE_SETTINGS:
+                    # Settings are handled within the menu state
+                    new_state = self.menu_state.handle_event(event)
                     
                 # IMPROVED: Apply state change from event if needed with additional debugging
                 if new_state is not None:
@@ -131,6 +136,9 @@ class Game:
                     self.game_over_state.set_score(self.game_state.score)
             elif self.current_state == STATE_GAME_OVER:
                 new_state = self.game_over_state.update(dt)
+            elif self.current_state == STATE_SETTINGS:
+                # Settings are handled within the menu state
+                new_state = self.menu_state.update(dt)
                 
             # IMPROVED: Apply state change from update if needed with additional debugging
             if new_state is not None:
@@ -140,7 +148,7 @@ class Game:
             
             # PART 3: RENDERING
             # Draw current state
-            if self.current_state == STATE_MENU:
+            if self.current_state == STATE_MENU or self.current_state == STATE_SETTINGS:
                 self.menu_state.draw(self.screen)
             elif self.current_state == STATE_COUNTDOWN:
                 self.countdown_state.draw(self.screen)
@@ -187,23 +195,83 @@ class Game:
             print("Transitioning to COUNTDOWN state")
             # Reset countdown timer when entering countdown state
             self.countdown_state = CountdownState(self.star_field, self.particle_system, self.asset_loader)
+            
+            # Reset game state to prepare for a new game with current settings
+            self.game_state.reset()
+            
+            # Apply sound settings
+            from settings.settings_manager import SettingsManager
+            settings = SettingsManager()
+            volume = 0.5 if settings.get_sound_enabled() else 0.0
+            
             # Change to game music with crossfade
-            self.asset_loader.play_music(self.assets["music"]["game"], fade_ms=MUSIC_FADE_DURATION)
+            self.asset_loader.play_music(self.assets["music"]["game"], volume=volume, fade_ms=MUSIC_FADE_DURATION)
+            
+            # Add visual effects for game start
+            self._add_game_start_effects()
             
         elif new_state == STATE_PLAYING:
             print("Transitioning to PLAYING state")
-            # Reset game state when starting a new game
-            if self.current_state == STATE_COUNTDOWN:
-                self.game_state.reset()
+            # No need to reset game state here as it was already reset in countdown transition
+            pass
             
         elif new_state == STATE_GAME_OVER:
-            print("Transitioning to GAME_OVER state")
+            print("Transitioning to GAME OVER state")
             # Change to game over music with crossfade
-            self.asset_loader.play_music(self.assets["music"]["game_over"], fade_ms=MUSIC_FADE_DURATION)
             
-        # Update the current state
+            # Apply sound settings
+            from settings.settings_manager import SettingsManager
+            settings = SettingsManager()
+            volume = 0.5 if settings.get_sound_enabled() else 0.0
+            
+            self.asset_loader.play_music(self.assets["music"]["game_over"], volume=volume, fade_ms=MUSIC_FADE_DURATION)
+            
+        # Set the new current state
         self.current_state = new_state
-        print(f"State changed: {self.state_names[old_state]} -> {self.state_names[new_state]}")
+        print(f"State changed to: {self.state_names[self.current_state]}")
+        
+    def _add_game_start_effects(self):
+        """Add visual effects for game start."""
+        if not self.particle_system:
+            return
+            
+        # Create a burst of particles in the center
+        center_x = SCREEN_WIDTH // 2
+        center_y = SCREEN_HEIGHT // 2
+        
+        # Create a starburst effect
+        colors = [
+            (0, 191, 255),    # Deep Sky Blue
+            (30, 144, 255),   # Dodger Blue
+            (65, 105, 225),   # Royal Blue
+            (100, 149, 237),  # Cornflower Blue
+            (135, 206, 250)   # Light Sky Blue
+        ]
+        
+        # Emit particles in all directions
+        for angle in range(0, 360, 5):  # Every 5 degrees
+            # Calculate direction
+            import math
+            angle_rad = angle * (math.pi / 180)
+            dir_x = math.cos(angle_rad)
+            dir_y = math.sin(angle_rad)
+            
+            # Calculate velocity
+            import random
+            speed = random.uniform(200, 300)
+            vel_x = dir_x * speed
+            vel_y = dir_y * speed
+            
+            # Emit the particle
+            self.particle_system.emit_particles(
+                center_x, center_y,
+                colors,
+                count=2,
+                velocity_range=((vel_x * 0.9, vel_x * 1.1), (vel_y * 0.9, vel_y * 1.1)),
+                size_range=(2, 4),
+                lifetime_range=(0.8, 1.2),
+                fade=True
+            )
 
 
 if __name__ == "__main__":

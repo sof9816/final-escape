@@ -130,6 +130,7 @@ STATE_MENU = 0
 STATE_COUNTDOWN = 1
 STATE_PLAYING = 2
 STATE_GAME_OVER = 3
+STATE_SETTINGS = 4
 
 # File paths
 PLAYER_IMAGE_PATH = "assets/images/ship.png"
@@ -137,4 +138,83 @@ LOGO_IMAGE_PATH = "assets/images/logo.png"
 ASTEROID_IMAGE_PATTERN = "assets/images/asteroids/a{}.png"  # Format with 0-6
 MENU_MUSIC_PATH = "assets/sound/Lone Knight in the Stars(Menu Scene).ogg"
 GAME_MUSIC_PATH = "assets/sound/Pixel Knight Asteroid Chase(Game Scene).ogg"
-GAME_OVER_MUSIC_PATH = "assets/sound/Asteroid Knight(Game Over).ogg" 
+GAME_OVER_MUSIC_PATH = "assets/sound/Asteroid Knight(Game Over).ogg"
+MENU_SELECT_SOUND_PATH = "assets/sound/menu_select.wav"
+MENU_NAVIGATE_SOUND_PATH = "assets/sound/menu_navigate.wav"
+
+# Difficulty settings
+DIFFICULTY_LEVELS = [
+    "Empty Space",        # Easiest
+    "Normal Space",       # Default
+    "We did not agree on that",
+    "You kidding",
+    "Hell No!!!"         # Hardest
+]
+
+# Difficulty spawn rate multipliers (higher = more asteroids)
+DIFFICULTY_SPAWN_RATE_MULTIPLIERS = {
+    "Empty Space": 0.5,        
+    "Normal Space": 1.0,       
+    "We did not agree on that": 1.5,
+    "You kidding": 2.0,
+    "Hell No!!!": 3.0         
+}
+
+# Difficulty asteroid variety impact
+# Higher indices mean harder asteroids (a5, a6) will spawn more frequently
+DIFFICULTY_ASTEROID_VARIETY = {
+    "Empty Space": {0: 40, 1: 30, 2: 20, 3: 10, 4: 0, 5: 0, 6: 0},
+    "Normal Space": {0: 25, 1: 20, 2: 15, 3: 10, 4: 7, 5: 4, 6: 2},
+    "We did not agree on that": {0: 15, 1: 15, 2: 20, 3: 20, 4: 15, 5: 10, 6: 5},
+    "You kidding": {0: 10, 1: 10, 2: 15, 3: 20, 4: 20, 5: 15, 6: 10},
+    "Hell No!!!": {0: 5, 1: 5, 2: 10, 3: 15, 4: 20, 5: 25, 6: 20}
+}
+
+# Difficulty asteroid size impact
+DIFFICULTY_SIZE_RESTRICTIONS = {
+    "Empty Space": {
+        0: ["small", "medium"],
+        1: ["small", "medium"],
+        2: ["small"],
+        3: ["small"],
+        4: ["small"],
+        5: ["small"],
+        6: ["small"]
+    },
+    "Normal Space": {
+        0: ["small", "medium", "large"],
+        1: ["small", "medium", "large"],
+        2: ["small", "medium", "large"],
+        3: ["small", "medium"],
+        4: ["small", "medium"],
+        5: ["small"],
+        6: ["small"]
+    },
+    "We did not agree on that": {
+        0: ["small", "medium", "large"],
+        1: ["small", "medium", "large"],
+        2: ["small", "medium", "large"],
+        3: ["small", "medium", "large"],
+        4: ["small", "medium"],
+        5: ["small", "medium"],
+        6: ["small"]
+    },
+    "You kidding": {
+        0: ["small", "medium", "large"],
+        1: ["small", "medium", "large"],
+        2: ["small", "medium", "large"],
+        3: ["small", "medium", "large"],
+        4: ["small", "medium", "large"],
+        5: ["small", "medium"],
+        6: ["small", "medium"]
+    },
+    "Hell No!!!": {
+        0: ["small", "medium", "large"],
+        1: ["small", "medium", "large"],
+        2: ["small", "medium", "large"],
+        3: ["small", "medium", "large"],
+        4: ["small", "medium", "large"],
+        5: ["small", "medium", "large"],
+        6: ["small", "medium"]
+    }
+} 
