@@ -1,5 +1,5 @@
 """
-Menu state for Asteroid Navigator game.
+Menu state for Final Escape game.
 """
 import pygame
 import random
@@ -24,13 +24,16 @@ class MenuState:
         self.star_field = star_field
         self.particle_system = particle_system
         
-        # Load logo
-        self.logo_img = asset_loader.load_image("assets/images/logo.png")
+        # Get assets
+        assets = asset_loader.load_game_assets()
+        
+        # Use text-based logo from assets
+        self.logo_img = assets["logo_img"]
         self.logo_rect = self.logo_img.get_rect(center=(SCREEN_WIDTH // 2, 150))
         
-        # Setup fonts
-        self.title_font = pygame.font.Font(None, TITLE_FONT_SIZE)
-        self.instruction_font = pygame.font.Font(None, INSTRUCTION_FONT_SIZE)
+        # Setup fonts from the asset loader
+        self.title_font = assets["fonts"]["title"] if "fonts" in assets and "title" in assets["fonts"] else pygame.font.Font(None, TITLE_FONT_SIZE)
+        self.instruction_font = assets["fonts"]["instruction"] if "fonts" in assets and "instruction" in assets["fonts"] else pygame.font.Font(None, INSTRUCTION_FONT_SIZE)
         
         # Setup text
         self.instruction_text = "Press any key to start"

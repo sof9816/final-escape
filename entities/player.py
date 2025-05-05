@@ -1,9 +1,10 @@
 """
-Player entity for Asteroid Navigator game.
+Player entity for Final Escape game.
 """
 import pygame
 import random
 import math
+import os
 from pygame.math import Vector2
 from constants import (
     PLAYER_SIZE, PLAYER_SPEED, PLAYER_ACCELERATION, PLAYER_DECELERATION,
@@ -23,8 +24,12 @@ class Player(pygame.sprite.Sprite):
         """
         super().__init__()
         
+        # Get appropriate resolution directory (1x, 2x, 3x)
+        res_dir = asset_loader.image_size_dir
+        ship_path = os.path.join("assets/images", res_dir, "ship.png")
+        
         # Load the player image
-        self.image_original = asset_loader.load_image("assets/images/player.png", scale=(PLAYER_SIZE, PLAYER_SIZE))
+        self.image_original = asset_loader.load_image(ship_path, scale=(PLAYER_SIZE, PLAYER_SIZE))
         self.image = self.image_original.copy()
         self.rect = self.image.get_rect(center=pos)
         
@@ -185,7 +190,7 @@ class Player(pygame.sprite.Sprite):
         if self.thrusting:
             self.thruster_cooldown -= dt
             if self.thruster_cooldown <= 0:
-                self.emit_thruster_particles()  # Call the emission method
+                self.emit_thruster_particles()
                 self.thruster_cooldown = self.thruster_rate
                 
         # Update rotation based on movement direction
@@ -226,8 +231,8 @@ class Player(pygame.sprite.Sprite):
         self.flash_timer = self.flash_rate
         self.flash_visible = True
         
-        return True 
-
+        return True
+        
     def emit_thruster_particles(self):
         """Emit thruster particle effects from three points behind the player."""
         if not self.particle_system:
@@ -248,15 +253,17 @@ class Player(pygame.sprite.Sprite):
         #    Calculate points perpendicular to the ship's orientation from the bottom point.
         perp_angle = angle_rad + (math.pi / 2)  # Perpendicular angle
         thruster_spacing = self.radius * 0.45  # Distance from center to side thrusters
-
+        
+        # Left thruster
         left_x = bottom_x + math.sin(perp_angle) * thruster_spacing
         left_y = bottom_y + math.cos(perp_angle) * thruster_spacing
-
+        
+        # Right thruster
         right_x = bottom_x - math.sin(perp_angle) * thruster_spacing
         right_y = bottom_y - math.cos(perp_angle) * thruster_spacing
-
+        
         # --- Define Flame Direction --- 
-        # CORRECTED: The flame should oppose the ACTUAL VELOCITY of the player.
+        # The flame should oppose the actual velocity of the player
         if self.velocity.length() > 0.1: # Avoid division by zero if not moving
             flame_direction = -self.velocity.normalize()
         else:
@@ -264,12 +271,12 @@ class Player(pygame.sprite.Sprite):
             flame_direction = Vector2(-math.cos(angle_rad), -math.sin(angle_rad))
 
         # --- Calculate Ship's Perpendicular Vector --- 
-        # This is needed to spread the cone relative to the ship's body, not velocity.
+        # This is needed to spread the cone relative to the ship's body, not velocity
         ship_perp_angle = angle_rad + (math.pi / 2)
         ship_perp_vector = Vector2(math.cos(ship_perp_angle), math.sin(ship_perp_angle))
 
         # --- Emit Flames --- 
-
+        
         # Center Flame (more intense)
         self._create_jet_flame(
             bottom_x, bottom_y,       # Position
@@ -281,7 +288,7 @@ class Player(pygame.sprite.Sprite):
             size_range=(3, 6),          # Particle size
             lifetime_range=(0.15, 0.3)  # Particle lifetime
         )
-
+        
         # Left Flame
         self._create_jet_flame(
             left_x, left_y,             # Position
@@ -293,7 +300,7 @@ class Player(pygame.sprite.Sprite):
             size_range=(2, 4),          # Particle size
             lifetime_range=(0.1, 0.25)  # Particle lifetime
         )
-
+        
         # Right Flame
         self._create_jet_flame(
             right_x, right_y,            # Position
@@ -305,7 +312,7 @@ class Player(pygame.sprite.Sprite):
             size_range=(2, 4),          # Particle size
             lifetime_range=(0.1, 0.25)  # Particle lifetime
         )
-
+    
     def _create_jet_flame(self, x, y, direction, ship_perp_vector, count, cone_width, speed_factor, size_range, lifetime_range):
         """Helper method to create a single jet flame cone effect."""
         # Base speed depends slightly on player's current speed
@@ -319,7 +326,7 @@ class Player(pygame.sprite.Sprite):
 
             # How close to the center of the cone (0 = edge, 1 = center)
             center_ratio = 1.0 - (abs(random_width_offset) / cone_width)
-
+            
             # Velocity calculation (uses flame direction)
             # Particles in the center move faster and straighter
             particle_speed = base_particle_speed * (0.8 + center_ratio * 0.4)
@@ -341,7 +348,7 @@ class Player(pygame.sprite.Sprite):
             # Lifetime calculation (center particles live slightly longer)
             current_min_lifetime = lifetime_range[0] * (0.9 + center_ratio * 0.2)
             current_max_lifetime = lifetime_range[1] * (0.9 + center_ratio * 0.2)
-
+            
             # Emit particle
             self.particle_system.emit_particles(
                 emit_x, emit_y,

@@ -1,9 +1,10 @@
 """
-Asteroid entity for Asteroid Navigator game.
+Asteroid entity for Final Escape game.
 """
 import pygame
 import random
 import math
+import os
 from pygame.math import Vector2
 from constants import (
     SCREEN_WIDTH, SCREEN_HEIGHT,
@@ -40,9 +41,12 @@ class Asteroid(pygame.sprite.Sprite):
         size_range = ASTEROID_SIZES[self.size_category]
         self.actual_size = random.randint(size_range["min"], size_range["max"])
         
-        # Load and scale asteroid image
+        # Load and scale asteroid image from the appropriate resolution directory
+        res_dir = asset_loader.image_size_dir  # Get the resolution dir (1x, 2x, 3x)
+        asteroid_path = os.path.join("assets/images", res_dir, f"a{self.asteroid_type}.png")
+        
         self.image_original = asset_loader.load_image(
-            f"assets/images/asteroids/a{self.asteroid_type}.png", 
+            asteroid_path, 
             scale=(self.actual_size, self.actual_size)
         )
         self.image = self.image_original.copy()
@@ -198,15 +202,15 @@ class Asteroid(pygame.sprite.Sprite):
                     max_size += 1
                 
                 # Calculate lifetime - center particles live slightly longer
-                min_lifetime = 0.2 + (center_ratio * 0.1)
-                max_lifetime = 0.4 + (center_ratio * 0.2) + (self.asteroid_type * 0.03)
+                min_lifetime = 0.1 + (center_ratio * 0.1) + (self.asteroid_type * 0.02)
+                max_lifetime = 0.2 + (center_ratio * 0.1) + (self.asteroid_type * 0.04)
                 
                 # Emit the particle
                 self.particle_system.emit_particles(
                     emit_x, emit_y,
                     ASTEROID_PARTICLE_COLORS,
                     count=1,
-                    velocity_range=((vel_x * 0.9, vel_x * 1.1), (vel_y * 0.9, vel_y * 1.1)),
+                    velocity_range=((vel_x*0.9, vel_x*1.1), (vel_y*0.9, vel_y*1.1)),
                     size_range=(min_size, max_size),
                     lifetime_range=(min_lifetime, max_lifetime),
                     fade=True

@@ -1,5 +1,5 @@
 """
-Constants for the Asteroid Navigator game.
+Constants for the Final Escape game.
 """
 
 # Game window settings
@@ -132,7 +132,7 @@ STATE_PLAYING = 2
 STATE_GAME_OVER = 3
 
 # File paths
-PLAYER_IMAGE_PATH = "assets/images/player.png"
+PLAYER_IMAGE_PATH = "assets/images/ship.png"
 LOGO_IMAGE_PATH = "assets/images/logo.png"
 ASTEROID_IMAGE_PATTERN = "assets/images/asteroids/a{}.png"  # Format with 0-6
 MENU_MUSIC_PATH = "assets/sound/Lone Knight in the Stars(Menu Scene).ogg"

@@ -1,5 +1,5 @@
 """
-Asteroid Navigator - Main Game Entry Point
+Final Escape - Main Game Entry Point
 
 This file serves as the main entry point for the game and manages the overall game loop
 and state transitions between different game states.
@@ -11,6 +11,7 @@ from constants import (
     STATE_PLAYING, STATE_GAME_OVER, FADE_DURATION, MUSIC_FADE_DURATION
 )
 from engine.asset_loader import AssetLoader
+from engine.text_renderer import TextRenderer
 from effects.stars import StarField
 from effects.particles import ParticleSystem
 from states.menu_state import MenuState
@@ -29,13 +30,17 @@ class Game:
         
         # Create the game window
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-        pygame.display.set_caption("Asteroid Navigator")
+        pygame.display.set_caption("Final Escape")
         
         # Create the asset loader
         self.asset_loader = AssetLoader()
         
         # Load all game assets
         self.assets = self.asset_loader.load_game_assets()
+        
+        # Initialize text renderer
+        self.text_renderer = TextRenderer(self.asset_loader)
+        self.asset_loader.text_renderer = self.text_renderer
         
         # IMPROVED: Create the particle system with significantly increased particle count
         self.particle_system = ParticleSystem(max_particles=5000)  # Increased from 2000
@@ -68,9 +73,9 @@ class Game:
     def initializeStates(self):
         """Initialize or reinitialize game states."""
         self.menu_state = MenuState(self.asset_loader, self.star_field, self.particle_system)
-        self.countdown_state = CountdownState(self.star_field, self.particle_system)
+        self.countdown_state = CountdownState(self.star_field, self.particle_system, self.asset_loader)
         self.game_state = GameState(self.asset_loader, self.star_field, self.particle_system)
-        self.game_over_state = GameOverState(self.star_field, self.particle_system)
+        self.game_over_state = GameOverState(self.star_field, self.particle_system, self.asset_loader)
         print("States initialized.")
         
     def run(self):
@@ -181,7 +186,7 @@ class Game:
         elif new_state == STATE_COUNTDOWN:
             print("Transitioning to COUNTDOWN state")
             # Reset countdown timer when entering countdown state
-            self.countdown_state = CountdownState(self.star_field, self.particle_system)
+            self.countdown_state = CountdownState(self.star_field, self.particle_system, self.asset_loader)
             # Change to game music with crossfade
             self.asset_loader.play_music(self.assets["music"]["game"], fade_ms=MUSIC_FADE_DURATION)
             

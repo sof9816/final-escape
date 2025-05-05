@@ -1,5 +1,5 @@
 """
-Game over state for Asteroid Navigator game.
+Game over state for Final Escape game.
 """
 import pygame
 import random
@@ -13,19 +13,27 @@ from constants import (
 class GameOverState:
     """The game over state shown when the player dies."""
     
-    def __init__(self, star_field, particle_system):
+    def __init__(self, star_field, particle_system, asset_loader=None):
         """Initialize the game over state.
         
         Args:
             star_field: StarField instance for background stars
             particle_system: ParticleSystem instance for effects
+            asset_loader: Optional AssetLoader instance for loading fonts
         """
         self.star_field = star_field
         self.particle_system = particle_system
+        self.asset_loader = asset_loader
         
-        # Setup fonts
-        self.game_over_font = pygame.font.Font(None, GAME_OVER_FONT_SIZE)
-        self.instruction_font = pygame.font.Font(None, INSTRUCTION_FONT_SIZE)
+        # Setup fonts - try to use custom fonts if asset_loader is provided
+        if asset_loader:
+            assets = asset_loader.load_game_assets()
+            self.game_over_font = assets["fonts"]["game_over"] if "fonts" in assets and "game_over" in assets["fonts"] else pygame.font.Font(None, GAME_OVER_FONT_SIZE)
+            self.instruction_font = assets["fonts"]["instruction"] if "fonts" in assets and "instruction" in assets["fonts"] else pygame.font.Font(None, INSTRUCTION_FONT_SIZE)
+        else:
+            # Fallback to default fonts
+            self.game_over_font = pygame.font.Font(None, GAME_OVER_FONT_SIZE)
+            self.instruction_font = pygame.font.Font(None, INSTRUCTION_FONT_SIZE)
         
         # Store final score
         self.final_score = 0

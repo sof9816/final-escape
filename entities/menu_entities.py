@@ -1,9 +1,10 @@
 """
-Menu animation entities for Asteroid Navigator game.
+Menu animation entities for Final Escape game.
 """
 import pygame
 import random
 import math
+import os
 from pygame.math import Vector2
 from constants import (
     SCREEN_WIDTH, SCREEN_HEIGHT, PLAYER_SIZE,
@@ -29,9 +30,12 @@ class MenuAsteroid:
         size_range = (35, 55)
         self.size = random.randint(size_range[0], size_range[1])
         
-        # Load and scale asteroid image
+        # Load and scale asteroid image using the appropriate resolution directory
+        res_dir = asset_loader.image_size_dir  # Get the resolution dir (1x, 2x, 3x)
+        asteroid_path = os.path.join("assets/images", res_dir, f"a{self.asteroid_type}.png")
+        
         self.image_original = asset_loader.load_image(
-            f"assets/images/asteroids/a{self.asteroid_type}.png",
+            asteroid_path,
             scale=(self.size, self.size)
         )
         self.image = self.image_original.copy()
@@ -148,9 +152,13 @@ class MenuPlayer:
         """
         self.particle_system = particle_system
         
+        # Load player image using the appropriate resolution directory
+        res_dir = asset_loader.image_size_dir  # Get the resolution dir (1x, 2x, 3x)
+        ship_path = os.path.join("assets/images", res_dir, "ship.png")
+        
         # Load player image
         self.image_original = asset_loader.load_image(
-            "assets/images/player.png",
+            ship_path,
             scale=(PLAYER_SIZE, PLAYER_SIZE)
         )
         self.image = self.image_original.copy()

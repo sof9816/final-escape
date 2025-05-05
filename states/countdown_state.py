@@ -1,5 +1,5 @@
 """
-Countdown state for Asteroid Navigator game.
+Countdown state for Final Escape game.
 """
 import pygame
 from constants import (
@@ -11,18 +11,25 @@ from constants import (
 class CountdownState:
     """Countdown before gameplay starts."""
     
-    def __init__(self, star_field, particle_system):
+    def __init__(self, star_field, particle_system, asset_loader=None):
         """Initialize the countdown state.
         
         Args:
             star_field: StarField instance for background stars
             particle_system: ParticleSystem instance for effects
+            asset_loader: Optional AssetLoader instance for loading fonts
         """
         self.star_field = star_field
         self.particle_system = particle_system
+        self.asset_loader = asset_loader
         
-        # Setup fonts
-        self.countdown_font = pygame.font.Font(None, COUNTDOWN_FONT_SIZE)
+        # Setup fonts - try to use custom fonts if asset_loader is provided
+        if asset_loader:
+            assets = asset_loader.load_game_assets()
+            self.countdown_font = assets["fonts"]["countdown"] if "fonts" in assets and "countdown" in assets["fonts"] else pygame.font.Font(None, COUNTDOWN_FONT_SIZE)
+        else:
+            # Fallback to default font
+            self.countdown_font = pygame.font.Font(None, COUNTDOWN_FONT_SIZE)
         
         # Countdown timer
         self.timer = 0
@@ -134,8 +141,18 @@ class CountdownState:
             # Use regular font if scale is too small
             if scaled_size < 20:
                 scaled_size = 20
-                
-            scaled_font = pygame.font.Font(None, scaled_size)
+            
+            # Try to use the custom font for scaling if available
+            if self.asset_loader:
+                try:
+                    # Get the font path from our countdown font
+                    font_path = self.countdown_font.get_filename()
+                    scaled_font = pygame.font.Font(font_path, scaled_size)
+                except:
+                    # Fallback to default font if there's an error
+                    scaled_font = pygame.font.Font(None, scaled_size)
+            else:
+                scaled_font = pygame.font.Font(None, scaled_size)
             
             countdown_text = str(countdown_num)
             countdown_surface = scaled_font.render(countdown_text, True, COUNTDOWN_COLOR)
