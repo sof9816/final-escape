@@ -1,0 +1,14 @@
+#!/usr/bin/env python3
+"""
+FinalEscape.py - Launcher for Final Escape game
+
+This is a simple wrapper that imports and runs the main game module.
+"""
+
+# Import the Game class from main.py
+from main import Game
+
+if __name__ == "__main__":
+    # Create game instance and run it
+    game = Game()
+    game.run() 
