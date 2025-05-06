@@ -74,11 +74,22 @@ class Game:
     
     def initializeStates(self):
         """Initialize or reinitialize game states."""
+        # Ensure latest settings are loaded
+        from settings.settings_manager import SettingsManager
+        settings = SettingsManager()
+        
+        # Create all game states with fresh settings
         self.menu_state = MenuState(self.asset_loader, self.star_field, self.particle_system)
         self.countdown_state = CountdownState(self.star_field, self.particle_system, self.asset_loader)
         self.game_state = GameState(self.asset_loader, self.star_field, self.particle_system)
         self.game_over_state = GameOverState(self.star_field, self.particle_system, self.asset_loader)
-        print("States initialized.")
+        
+        # Apply sound settings to current music
+        volume = 0.5 if settings.get_sound_enabled() else 0.0
+        pygame.mixer.music.set_volume(volume)
+        
+        print("States initialized with current settings.")
+        print(f"Current settings - Sound: {'ON' if settings.get_sound_enabled() else 'OFF'}, Difficulty: {settings.get_difficulty()}")
         
     def run(self):
         """Run the main game loop."""
@@ -172,6 +183,12 @@ class Game:
         old_state = self.current_state
         print(f"Changing state from {self.state_names[old_state]} to {self.state_names[new_state]}")
         
+        # Always reload settings before state transitions
+        from settings.settings_manager import SettingsManager
+        settings = SettingsManager()
+        sound_enabled = settings.get_sound_enabled()
+        volume = 0.5 if sound_enabled else 0.0
+        
         # IMPROVED: Handling of state transitions, especially for game over to menu
         # Reset states when appropriate
         if new_state == STATE_MENU:
@@ -189,7 +206,7 @@ class Game:
                 self.initializeStates()
                 
             # Change to menu music with crossfade
-            self.asset_loader.play_music(self.assets["music"]["menu"], fade_ms=MUSIC_FADE_DURATION)
+            self.asset_loader.play_music(self.assets["music"]["menu"], volume=volume, fade_ms=MUSIC_FADE_DURATION)
             
         elif new_state == STATE_COUNTDOWN:
             print("Transitioning to COUNTDOWN state")
@@ -198,11 +215,6 @@ class Game:
             
             # Reset game state to prepare for a new game with current settings
             self.game_state.reset()
-            
-            # Apply sound settings
-            from settings.settings_manager import SettingsManager
-            settings = SettingsManager()
-            volume = 0.5 if settings.get_sound_enabled() else 0.0
             
             # Change to game music with crossfade
             self.asset_loader.play_music(self.assets["music"]["game"], volume=volume, fade_ms=MUSIC_FADE_DURATION)
@@ -218,12 +230,6 @@ class Game:
         elif new_state == STATE_GAME_OVER:
             print("Transitioning to GAME OVER state")
             # Change to game over music with crossfade
-            
-            # Apply sound settings
-            from settings.settings_manager import SettingsManager
-            settings = SettingsManager()
-            volume = 0.5 if settings.get_sound_enabled() else 0.0
-            
             self.asset_loader.play_music(self.assets["music"]["game_over"], volume=volume, fade_ms=MUSIC_FADE_DURATION)
             
         # Set the new current state

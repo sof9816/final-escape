@@ -35,11 +35,8 @@ class MainMenu(Menu):
             print(f"- Sound: {'ON' if self.settings_manager.get_sound_enabled() else 'OFF'}")
             print(f"- Star Opacity: {self.settings_manager.get_star_opacity()}%")
             
-            # Ensure settings are saved before transitioning
-            self.settings_manager.save_settings()
-            
             # Create a visual effect for game start
-            if self.select_sound:
+            if self.select_sound and self.settings_manager.get_sound_enabled():
                 self.select_sound.play()
                 
             # Show notification
@@ -50,7 +47,7 @@ class MainMenu(Menu):
             
         def open_settings():
             print("Opening settings")
-            if self.select_sound:
+            if self.select_sound and self.settings_manager.get_sound_enabled():
                 self.select_sound.play()
                 
             # Show notification
@@ -78,13 +75,16 @@ class MainMenu(Menu):
         Returns:
             Next state (STATE_COUNTDOWN, STATE_SETTINGS) or None
         """
+        # Always refresh settings before handling events
+        self.settings_manager = SettingsManager()  # Reload settings
+        
         # Custom keyboard shortcuts
         if self.active and self.appear_progress >= 0.9 and event.type == pygame.KEYDOWN:
             # S key for settings
             if event.key == pygame.K_s:
                 for item in self.items:
                     if "settings" in item.text.lower() and item.enabled:
-                        if self.select_sound:
+                        if self.select_sound and self.settings_manager.get_sound_enabled():
                             self.select_sound.play()
                         return item.activate()
                         
@@ -100,5 +100,8 @@ class MainMenu(Menu):
         Returns:
             Next state or None
         """
+        # Always refresh settings
+        self.settings_manager = SettingsManager()
+        
         # Use the parent class's update logic
         return super().update(dt) 

@@ -119,6 +119,10 @@ class Menu:
         self.item_font = item_font or pygame.font.Font(None, INSTRUCTION_FONT_SIZE)
         self.asset_loader = asset_loader
         
+        # Add settings manager to check sound settings
+        from settings.settings_manager import SettingsManager
+        self.settings_manager = SettingsManager()
+        
         # Render the title
         self.title_surface = self.title_font.render(self.title, True, (255, 255, 255))
         self.title_rect = self.title_surface.get_rect(center=(SCREEN_WIDTH // 2, 150))
@@ -216,21 +220,25 @@ class Menu:
         Returns:
             Result of the selected action if an item is activated, None otherwise
         """
+        # Refresh settings to ensure we have the latest sound setting
+        self.settings_manager = self.settings_manager or __import__('settings.settings_manager').settings_manager.SettingsManager()
+        sound_enabled = self.settings_manager.get_sound_enabled()
+        
         if not self.active or self.appear_progress < 0.9:
             return None
             
         if event.type == pygame.KEYDOWN:
             # Up/Down navigation
             if event.key == pygame.K_UP:
-                if self._select_previous() and self.navigate_sound:
+                if self._select_previous() and self.navigate_sound and sound_enabled:
                     self.navigate_sound.play()
             elif event.key == pygame.K_DOWN:
-                if self._select_next() and self.navigate_sound:
+                if self._select_next() and self.navigate_sound and sound_enabled:
                     self.navigate_sound.play()
             # Activation with Enter or Space
             elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                 if 0 <= self.selected_index < len(self.items):
-                    if self.select_sound:
+                    if self.select_sound and sound_enabled:
                         self.select_sound.play()
                     return self.items[self.selected_index].activate()
             # ESC key typically goes back in menus
@@ -238,7 +246,7 @@ class Menu:
                 for item in self.items:
                     if "back" in item.text.lower() and item.enabled:
                         self._select_item_at_index(self.items.index(item))
-                        if self.select_sound:
+                        if self.select_sound and sound_enabled:
                             self.select_sound.play()
                         return item.activate()
             # Toggle help text with F1
@@ -249,21 +257,14 @@ class Menu:
         elif event.type == pygame.MOUSEMOTION:
             self._handle_mouse_move(event.pos)
             
-        # Mouse click to select
+        # Mouse button press to select
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # Left click
             for i, item in enumerate(self.items):
                 if item.contains_point(event.pos) and item.enabled:
-                    # Already selected, so activate it
-                    if item.selected:
-                        if self.select_sound:
-                            self.select_sound.play()
-                        return item.activate()
-                    # Not selected yet, select it first
-                    else:
-                        self._select_item_at_index(i)
-                        if self.navigate_sound:
-                            self.navigate_sound.play()
-                        break
+                    self._select_item_at_index(i)
+                    if self.select_sound and sound_enabled:
+                        self.select_sound.play()
+                    return item.activate()
         
         return None
     
@@ -273,11 +274,14 @@ class Menu:
         Args:
             pos: (x, y) mouse position
         """
+        # Refresh settings to ensure we have the latest sound setting
+        sound_enabled = self.settings_manager.get_sound_enabled()
+        
         for i, item in enumerate(self.items):
             if item.contains_point(pos) and item.enabled:
                 if i != self.selected_index:
                     self._select_item_at_index(i)
-                    if self.navigate_sound:
+                    if self.navigate_sound and sound_enabled:
                         self.navigate_sound.play()
                 break
     
@@ -357,6 +361,9 @@ class Menu:
         Returns:
             None (handled by the menu item activate method)
         """
+        # Refresh settings
+        self.settings_manager = self.settings_manager or __import__('settings.settings_manager').settings_manager.SettingsManager()
+        
         # Update appearance animation
         if self.active and self.appear_progress < 1.0:
             self.appear_progress += self.appear_speed * dt

@@ -35,7 +35,9 @@ class GameState:
         
         # Load settings
         self.settings_manager = SettingsManager()
-        self.difficulty = self.settings_manager.get_difficulty()
+        
+        # Instead of storing difficulty as an instance variable at init,
+        # we'll always get the current value when needed to ensure it's up-to-date
         
         # Setup fonts
         self.score_font = pygame.font.Font(None, SCORE_FONT_SIZE)
@@ -71,10 +73,23 @@ class GameState:
             
     def reset(self):
         """Reset the game state for a new game."""
-        # Load settings again (in case they were changed)
-        new_difficulty = self.settings_manager.get_difficulty()
-        difficulty_changed = new_difficulty != self.difficulty
-        self.difficulty = new_difficulty
+        # Always recreate the settings_manager to ensure we have the latest settings
+        self.settings_manager = SettingsManager()
+        
+        # Get the most current settings
+        current_difficulty = self.settings_manager.get_difficulty()
+        
+        # Store previous difficulty to check if it changed
+        previous_difficulty = getattr(self, 'difficulty', None)
+        
+        # Update the instance variable
+        self.difficulty = current_difficulty
+        
+        # Determine if the difficulty changed
+        difficulty_changed = current_difficulty != previous_difficulty
+        
+        # Log for debugging
+        print(f"Game reset: Difficulty is now {current_difficulty} (was {previous_difficulty})")
         
         # Clear sprite groups
         self.all_sprites.empty()
@@ -146,7 +161,9 @@ class GameState:
         Returns:
             float: Spawn interval in seconds
         """
-        spawn_rate_multiplier = DIFFICULTY_SPAWN_RATE_MULTIPLIERS.get(self.difficulty, 1.0)
+        # Always get the latest difficulty setting
+        current_difficulty = self.settings_manager.get_difficulty()
+        spawn_rate_multiplier = DIFFICULTY_SPAWN_RATE_MULTIPLIERS.get(current_difficulty, 1.0)
         base_interval = ASTEROID_SPAWN_RATE / spawn_rate_multiplier
         return random.uniform(base_interval * 0.8, base_interval * 1.2)
     
@@ -156,8 +173,10 @@ class GameState:
         Returns:
             tuple: (type_id, size_category)
         """
+        # Always get the latest difficulty setting
+        current_difficulty = self.settings_manager.get_difficulty()
         # Get the weights for the current difficulty
-        weights = DIFFICULTY_ASTEROID_VARIETY.get(self.difficulty, DIFFICULTY_ASTEROID_VARIETY["Normal Space"])
+        weights = DIFFICULTY_ASTEROID_VARIETY.get(current_difficulty, DIFFICULTY_ASTEROID_VARIETY["Normal Space"])
         
         # Create a list of types with their weights
         weighted_types = []
@@ -169,7 +188,7 @@ class GameState:
         
         # Choose a size based on the allowed sizes for this type and difficulty
         allowed_sizes = DIFFICULTY_SIZE_RESTRICTIONS.get(
-            self.difficulty, DIFFICULTY_SIZE_RESTRICTIONS["Normal Space"]
+            current_difficulty, DIFFICULTY_SIZE_RESTRICTIONS["Normal Space"]
         ).get(type_id, ["small"])
         
         size_category = random.choice(allowed_sizes)
@@ -227,13 +246,16 @@ class GameState:
             # Choose asteroid type and size based on difficulty
             type_id, size_category = self._choose_asteroid_type()
             
+            # Get current difficulty
+            current_difficulty = self.settings_manager.get_difficulty()
+            
             # Create new asteroid
             new_asteroid = Asteroid(
                 self.particle_system, 
                 self.asset_loader,
                 type_id=type_id,
                 size_category=size_category,
-                difficulty=self.difficulty  # Pass the current difficulty to the asteroid
+                difficulty=current_difficulty  # Always pass current difficulty to the asteroid
             )
             self.all_sprites.add(new_asteroid)
             self.asteroids.add(new_asteroid)
@@ -286,6 +308,9 @@ class GameState:
         score_surface = self.score_font.render(score_text, True, SCORE_COLOR)
         surface.blit(score_surface, (10, 10))
         
+        # Get current difficulty
+        current_difficulty = self.settings_manager.get_difficulty()
+        
         # Draw difficulty with color coding
         difficulty_colors = {
             "Empty Space": (0, 255, 0),  # Green for easiest
@@ -294,9 +319,9 @@ class GameState:
             "You kidding": (255, 100, 0),  # Dark orange for hard
             "Hell No!!!": (255, 0, 0)  # Red for hardest
         }
-        difficulty_color = difficulty_colors.get(self.difficulty, SCORE_COLOR)
+        difficulty_color = difficulty_colors.get(current_difficulty, SCORE_COLOR)
         
-        difficulty_text = f"Difficulty: {self.difficulty}"
+        difficulty_text = f"Difficulty: {current_difficulty}"
         difficulty_surface = self.score_font.render(difficulty_text, True, difficulty_color)
         difficulty_rect = difficulty_surface.get_rect(topright=(SCREEN_WIDTH - 10, 10))
         
@@ -325,6 +350,9 @@ class GameState:
             # Calculate alpha (fade out towards the end)
             alpha = min(255, int(255 * (self.difficulty_message_timer / 0.5))) if self.difficulty_message_timer < 0.5 else 255
             
+            # Get current difficulty
+            current_difficulty = self.settings_manager.get_difficulty()
+            
             # Difficulty-specific color
             difficulty_colors = {
                 "Empty Space": (0, 255, 0),  # Green for easiest
@@ -333,10 +361,10 @@ class GameState:
                 "You kidding": (255, 100, 0),  # Dark orange for hard
                 "Hell No!!!": (255, 0, 0)  # Red for hardest
             }
-            color = difficulty_colors.get(self.difficulty, (255, 255, 255))
+            color = difficulty_colors.get(current_difficulty, (255, 255, 255))
             
             # Create message
-            message = f"Difficulty: {self.difficulty}"
+            message = f"Difficulty: {current_difficulty}"
             message_surface = self.message_font.render(message, True, color)
             message_rect = message_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 50))
             
@@ -361,7 +389,7 @@ class GameState:
                 "Hell No!!!": "Virtually unsurvivable!"
             }
             
-            subtitle = difficulty_descriptions.get(self.difficulty, "")
+            subtitle = difficulty_descriptions.get(current_difficulty, "")
             if subtitle:
                 subtitle_surface = self.message_font.render(subtitle, True, color)
                 subtitle_rect = subtitle_surface.get_rect(center=(SCREEN_WIDTH // 2, message_rect.bottom + 10))
