@@ -67,7 +67,7 @@ class AssetLoader:
         else:
             # "New style" - path is relative to the current resolution directory
             full_path = os.path.join("assets/images", self.image_size_dir, relative_path)
-            print(f"AssetLoader: Constructed path for image: {full_path} (from relative: '{relative_path}')")
+            # print(f"AssetLoader: Constructed path for image: {full_path} (from relative: '{relative_path}')")
 
         # Check if the resolution-specific asset exists
         if not os.path.exists(full_path):

@@ -21,7 +21,7 @@ class MainMenu(Menu):
         self.screen_width = screen_width if screen_width is not None else SCREEN_WIDTH
         self.screen_height = screen_height if screen_height is not None else SCREEN_HEIGHT
         
-        # Get assets
+        # Get assets to restore the pixel font
         assets = asset_loader.load_game_assets()
         
         # Get fonts from the asset loader
@@ -30,6 +30,11 @@ class MainMenu(Menu):
         
         # Initialize the base menu with title
         super().__init__("FINAL ESCAPE", title_font, item_font, asset_loader, self.screen_width, self.screen_height)
+        
+        # Title border attributes
+        self.title_border_color = (0, 150, 255)  # Light blue border
+        self.title_border_width = 2
+        self.title_color = (255, 255, 255)  # White text
         
         # Initialize settings manager to access saved settings
         self.settings_manager = SettingsManager()
@@ -67,19 +72,101 @@ class MainMenu(Menu):
         self.add_item("Settings", open_settings)
         
         # Attempt to center the menu if the base class (Menu) provides a 'rect' attribute
-        # The base Menu class is primarily responsible for layout using screen_width and screen_height.
         if hasattr(self, 'rect') and isinstance(self.rect, pygame.Rect):
             self.rect.center = (self.screen_width // 2, self.screen_height // 2)
-            print(f"MainMenu: Attempted to center menu rect at {self.rect.center}")
+            print(f"MainMenu: Centered menu rect at {self.rect.center}")
         else:
-            print("MainMenu: Base Menu class does not have a 'rect' or it's not a pygame.Rect. Centering depends on base class implementation.")
+            print("MainMenu: No rect attribute available for centering.")
 
         # Activate the menu by default
         self.activate()
         
         # Show welcome notification on first activation
         self.show_notification("Welcome to Final Escape!", 3.0)
+    
+    def render_title_with_border(self, surface, text, position):
+        """Render the title text with a border.
         
+        Args:
+            surface: Pygame surface to draw on
+            text: Title text
+            position: (x, y) position for the title
+        """
+        # Create text surface with the title color
+        text_surface = self.title_font.render(text, True, self.title_color)
+        text_rect = text_surface.get_rect(center=position)
+        
+        # Create a slightly larger surface for the border
+        border_surface = pygame.Surface((text_surface.get_width() + self.title_border_width*2, 
+                                       text_surface.get_height() + self.title_border_width*2),
+                                      pygame.SRCALPHA)
+        
+        # Draw the border by rendering the text in the border color at offset positions
+        for x_offset in range(-self.title_border_width, self.title_border_width+1):
+            for y_offset in range(-self.title_border_width, self.title_border_width+1):
+                # Skip the center position (that will be the main text)
+                if x_offset == 0 and y_offset == 0:
+                    continue
+                
+                # Only draw the outermost pixels for a cleaner border
+                if abs(x_offset) != self.title_border_width and abs(y_offset) != self.title_border_width:
+                    continue
+                
+                border_text = self.title_font.render(text, True, self.title_border_color)
+                border_surface.blit(border_text, 
+                                  (self.title_border_width + x_offset, 
+                                   self.title_border_width + y_offset))
+        
+        # Draw the main text in the center
+        border_surface.blit(text_surface, (self.title_border_width, self.title_border_width))
+        
+        # Draw the combined surface to the main surface
+        border_rect = border_surface.get_rect(center=position)
+        surface.blit(border_surface, border_rect)
+    
+    def draw(self, surface):
+        """Draw the menu with custom title rendering but otherwise use the parent class's button animations.
+        
+        Args:
+            surface: Pygame surface to draw on
+        """
+        # First, apply the parent class's draw method to handle most menu elements
+        # Store the original title_surface and title_rect
+        original_title_surface = self.title_surface
+        original_title_rect = self.title_rect
+        
+        # Override the title_glow_alpha value to prevent flickering
+        original_title_glow_alpha = self.title_glow_alpha
+        self.title_glow_alpha = 0  # Disable the glow animation
+        
+        # Instead of setting to None, create a transparent surface of the same size
+        if self.title_surface:
+            transparent_surface = pygame.Surface(self.title_surface.get_size(), pygame.SRCALPHA)
+            transparent_surface.fill((0, 0, 0, 0))  # Completely transparent
+            self.title_surface = transparent_surface
+            
+        # Draw only a semi-transparent overlay to allow stars to be visible
+        if hasattr(self, 'background_alpha') and self.background_alpha > 0:
+            bg_overlay = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
+            bg_overlay.fill((0, 0, 30, 20))  # Very transparent background
+            surface.blit(bg_overlay, (0, 0))
+        
+        # Call parent class draw method to draw everything except the visible title
+        # This will handle all the button animations
+        super().draw(surface)
+        
+        # Restore original values
+        self.title_surface = original_title_surface
+        self.title_rect = original_title_rect
+        self.title_glow_alpha = original_title_glow_alpha
+        
+        # Now draw our custom bordered title - always at full opacity
+        if hasattr(self, 'title_rect') and self.title_rect:
+            self.render_title_with_border(surface, self.title, self.title_rect.center)
+        else:
+            # Fallback position if title_rect isn't available
+            self.render_title_with_border(surface, self.title, (self.screen_width // 2, 150))
+    
     def handle_event(self, event):
         """Handle pygame events.
         
@@ -117,5 +204,5 @@ class MainMenu(Menu):
         # Always refresh settings
         self.settings_manager = SettingsManager()
         
-        # Use the parent class's update logic
+        # Use the parent class's update logic which includes button animations
         return super().update(dt) 

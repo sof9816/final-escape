@@ -292,48 +292,20 @@ class SettingsMenu(Menu):
         # Apply appearance progress to all elements
         alpha = int(255 * self.appear_progress)
         
+        # Store original title and glow values to restore later
+        original_title_surface = self.title_surface
+        original_title_rect = self.title_rect
+        original_title_glow_alpha = self.title_glow_alpha
+        
+        # Override the title_glow_alpha to disable the glow animation
+        self.title_glow_alpha = 0  # Disable title glow/flicker
+        
         # Draw a subtle background overlay
         if self.background_alpha > 0:
             bg_overlay = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
             bg_overlay.fill((0, 0, 30, self.background_alpha))
             bg_overlay.set_alpha(alpha)
             surface.blit(bg_overlay, (0, 0))
-        
-        # Draw the title with glow effect
-        if self.title_glow_alpha > 0:
-            # Create glow surface
-            glow_size = 5  # Pixels of glow around text
-            glow_surface = pygame.Surface((
-                self.title_rect.width + glow_size * 2,
-                self.title_rect.height + glow_size * 2
-            ), pygame.SRCALPHA)
-            
-            # Render the glow
-            glow_color = (100, 150, 255, int(self.title_glow_alpha))
-            pygame.draw.rect(
-                glow_surface,
-                glow_color,
-                pygame.Rect(0, 0, glow_surface.get_width(), glow_surface.get_height()),
-                0,
-                10  # Rounded corners
-            )
-            
-            # Apply a slight blur effect
-            blurred_surface = pygame.transform.smoothscale(
-                glow_surface,
-                (glow_surface.get_width() - 2, glow_surface.get_height() - 2)
-            )
-            glow_surface = blurred_surface
-            
-            # Position the glow
-            glow_rect = glow_surface.get_rect(center=self.title_rect.center)
-            glow_surface.set_alpha(alpha)
-            surface.blit(glow_surface, glow_rect)
-        
-        # Draw the title
-        title_surface_with_alpha = self.title_surface.copy()
-        title_surface_with_alpha.set_alpha(alpha)
-        surface.blit(title_surface_with_alpha, self.title_rect)
         
         # Draw menu items with increased spacing
         if self.items:
@@ -464,6 +436,17 @@ class SettingsMenu(Menu):
                     # Draw arrows
                     arrow_rect = arrow_surface.get_rect(center=(self.screen_width // 2, item_y))
                     surface.blit(arrow_surface, arrow_rect)
+        
+        # Draw the title with full opacity (no flickering)
+        if hasattr(self, 'title_surface') and self.title_surface:
+            title_surface = self.title_surface.copy()
+            title_rect = self.title_rect
+            surface.blit(title_surface, title_rect)
+        
+        # Restore the original values
+        self.title_surface = original_title_surface
+        self.title_rect = original_title_rect
+        self.title_glow_alpha = original_title_glow_alpha
         
         # Draw help text if enabled
         if self.show_help and self.help_surfaces and self.appear_progress >= 0.8:

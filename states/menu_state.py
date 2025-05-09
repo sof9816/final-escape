@@ -49,17 +49,6 @@ class MenuState:
         self.active_menu = self.main_menu
         self.previous_menu = None
         
-        # Create menu entities
-        from entities.menu_entities import MenuAsteroid, MenuPlayer
-        
-        # Create background asteroids
-        self.menu_asteroids = []
-        for _ in range(10):  # 10 asteroids in menu
-            self.menu_asteroids.append(MenuAsteroid(particle_system, asset_loader))
-            
-        # Create player ship that moves in a circle
-        self.menu_player = MenuPlayer(particle_system, asset_loader)
-        
         # Transition state
         self.transition_out = False
         self.fade_alpha = 0
@@ -254,17 +243,6 @@ class MenuState:
         # Update particles
         self.particle_system.update(dt)
         
-        # Update menu asteroids
-        for asteroid in self.menu_asteroids:
-            asteroid.update(dt)
-            
-            # Emit particles occasionally
-            if random.random() < 0.2 * dt * 60:  # 20% chance per frame
-                asteroid.emit_fire_particles()
-                
-        # Update menu player
-        self.menu_player.update(dt)
-        
         # Handle menu transitions
         if self.menu_transition:
             self.menu_transition_timer += dt
@@ -379,13 +357,6 @@ class MenuState:
         
         # Draw particles
         self.particle_system.draw(surface)
-        
-        # Draw menu asteroids
-        for asteroid in self.menu_asteroids:
-            asteroid.draw(surface)
-            
-        # Draw menu player
-        self.menu_player.draw(surface)
         
         if self.menu_transition:
             # During menu transition, fade between menus
