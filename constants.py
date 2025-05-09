@@ -218,4 +218,26 @@ DIFFICULTY_SIZE_RESTRICTIONS = {
         5: ["small", "medium", "large"],
         6: ["small", "medium"]
     }
-} 
+}
+
+# Power-up Settings
+POWERUP_SIZE = 40  # Default size for power-up icons
+POWERUP_SPAWN_CHANCE = 0.1  # 10% chance to spawn a power-up instead of an asteroid (can be adjusted)
+POWERUP_BOOM_ID = "boom"
+POWERUP_TYPES = {
+    POWERUP_BOOM_ID: {
+        "image_file": "boom.png",
+        "rarity": "rare" # "common", "uncommon", "rare" - for future use
+    }
+    # Add other power-up types here in the future
+}
+POWERUP_BOOM_EFFECT_RADIUS_FACTOR = 0.7 # Increased from 0.5 to 0.7 for larger explosion radius
+POWERUP_BOOM_FLASH_COLOR = (255, 255, 255) # White
+POWERUP_BOOM_FLASH_DURATION = 0.5 # seconds
+POWERUP_BOOM_CHAIN_EXPLOSIONS = 3
+POWERUP_BOOM_CHAIN_DELAY = 0.2 # seconds between each asteroid explosion in the chain
+
+# Power-up and Explosion Sounds
+SOUND_POWERUP_COLLECT = "assets/sound/power-ups/health.ogg"
+SOUND_EXPLOSION_MAIN = "assets/sound/power-ups/boom.ogg"
+SOUND_ASTEROID_EXPLODE = "assets/sound/power-ups/asteroid-die.ogg" 

@@ -66,6 +66,14 @@ class MainMenu(Menu):
         self.add_item("Story", None, enabled=False)  # Disabled option
         self.add_item("Settings", open_settings)
         
+        # Attempt to center the menu if the base class (Menu) provides a 'rect' attribute
+        # The base Menu class is primarily responsible for layout using screen_width and screen_height.
+        if hasattr(self, 'rect') and isinstance(self.rect, pygame.Rect):
+            self.rect.center = (self.screen_width // 2, self.screen_height // 2)
+            print(f"MainMenu: Attempted to center menu rect at {self.rect.center}")
+        else:
+            print("MainMenu: Base Menu class does not have a 'rect' or it's not a pygame.Rect. Centering depends on base class implementation.")
+
         # Activate the menu by default
         self.activate()
         

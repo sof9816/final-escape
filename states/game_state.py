@@ -12,10 +12,19 @@ from constants import (
     HEALTH_BAR_COLOR, HEALTH_BAR_BACKGROUND_COLOR, HEALTH_BAR_BORDER_COLOR,
     PLAYER_MAX_HEALTH, FADE_DURATION, STATE_GAME_OVER,
     DIFFICULTY_SPAWN_RATE_MULTIPLIERS, DIFFICULTY_ASTEROID_VARIETY,
-    DIFFICULTY_SIZE_RESTRICTIONS, INSTRUCTION_FONT_SIZE
+    DIFFICULTY_SIZE_RESTRICTIONS, INSTRUCTION_FONT_SIZE,
+    # Power-up related constants
+    POWERUP_SPAWN_CHANCE, POWERUP_TYPES, POWERUP_BOOM_ID,
+    SOUND_POWERUP_COLLECT,
+    # Boom effect constants
+    POWERUP_BOOM_EFFECT_RADIUS_FACTOR, POWERUP_BOOM_FLASH_DURATION, POWERUP_BOOM_FLASH_COLOR, 
+    SOUND_EXPLOSION_MAIN, # Already imported by PowerUp, but good to have explicitly if GameState uses it directly
+    SOUND_ASTEROID_EXPLODE, POWERUP_BOOM_CHAIN_EXPLOSIONS, POWERUP_BOOM_CHAIN_DELAY,
+    ASTEROID_PARTICLE_COLORS # Import for asteroid destruction particles
 )
 from entities.player import Player
 from entities.asteroid import Asteroid
+from entities.powerup import PowerUp # Import PowerUp class
 from settings.settings_manager import SettingsManager
 
 class GameState:
@@ -52,9 +61,17 @@ class GameState:
         # Create sprite groups
         self.all_sprites = pygame.sprite.Group()
         self.asteroids = pygame.sprite.Group()
+        self.powerups = pygame.sprite.Group() # New group for power-ups
         
         # Create player
-        self.player = Player((self.screen_width // 2, self.screen_height // 2), particle_system, asset_loader)
+        # Ensure assets are loaded before creating the player if not already
+        if self.asset_loader.assets is None:
+            self.asset_loader.load_game_assets() # Should ideally be called once before state creation
+        self.player = Player(
+            (self.screen_width // 2, self.screen_height // 2), 
+            self.asset_loader.assets["player_img"], # Pass the pre-loaded image
+            particle_system
+        )
         self.all_sprites.add(self.player)
         
         # Game variables
@@ -76,6 +93,12 @@ class GameState:
         # Difficulty notification
         self.show_difficulty_message = True
         self.difficulty_message_timer = 3.0  # Display for 3 seconds
+
+        # Boom Power-up effect state
+        self.boom_effect_active = False
+        self.boom_flash_timer = 0.0
+        self.boom_center = None
+        self.scheduled_sounds = [] # List of (sound_asset, delay_timer)
             
     def reset(self):
         """Reset the game state for a new game."""
@@ -100,9 +123,17 @@ class GameState:
         # Clear sprite groups
         self.all_sprites.empty()
         self.asteroids.empty()
+        self.powerups.empty() # Clear power-ups on reset
         
         # Create new player
-        self.player = Player((self.screen_width // 2, self.screen_height // 2), self.particle_system, self.asset_loader)
+        # Ensure assets are loaded
+        if self.asset_loader.assets is None: # Should not happen if init loaded them
+            self.asset_loader.load_game_assets()
+        self.player = Player(
+            (self.screen_width // 2, self.screen_height // 2), 
+            self.asset_loader.assets["player_img"], # Pass the pre-loaded image
+            self.particle_system # Pass the particle_system from GameState
+        )
         self.all_sprites.add(self.player)
         
         # Reset game variables
@@ -118,6 +149,12 @@ class GameState:
         # Always show difficulty at game start
         self.show_difficulty_message = True
         self.difficulty_message_timer = 3.0
+
+        # Reset Boom Power-up effect state
+        self.boom_effect_active = False
+        self.boom_flash_timer = 0.0
+        self.boom_center = None
+        self.scheduled_sounds = []
         
         # Create difficulty notification particles if difficulty changed
         if difficulty_changed:
@@ -228,11 +265,61 @@ class GameState:
             self.transition_timer += dt
             self.fade_alpha = min(255, int(255 * (self.transition_timer / FADE_DURATION)))
             
-            # If transition complete, change to game over state
             if self.transition_timer >= FADE_DURATION:
                 return STATE_GAME_OVER
+            return None # Return early if transitioning
+
+        # Handle Boom Effect Logic (before other updates if it affects them)
+        if self.boom_effect_active:
+            # This flag is set by PowerUp.activate(), effect processing starts here
+            if self.boom_center: # Ensure boom_center was set
+                explosion_radius = min(self.screen_width, self.screen_height) * POWERUP_BOOM_EFFECT_RADIUS_FACTOR
+                asteroids_destroyed_count = 0
                 
-            return None
+                for asteroid in list(self.asteroids): # Iterate over a copy for safe removal
+                    distance = self.boom_center.distance_to(asteroid.position)
+                    if distance < explosion_radius + asteroid.radius: # Consider asteroid's own radius
+                        # Create particle explosion for this asteroid
+                        if self.particle_system:
+                            self.particle_system.emit_particles(
+                                asteroid.rect.centerx, asteroid.rect.centery,
+                                ASTEROID_PARTICLE_COLORS, # Use imported constant
+                                count=random.randint(15, 25), # More particles for explosion
+                                velocity_range=((-200, 200), (-200, 200)), # Wider spread
+                                size_range=(2, 5),
+                                lifetime_range=(0.5, 1.0),
+                                fade=True
+                            )
+                        asteroid.kill() # Remove asteroid
+                        asteroids_destroyed_count += 1
+                        self.score += 50 # Bonus score for power-up destruction
+
+                # Schedule chained/delayed explosion sounds
+                num_sounds_to_play = min(asteroids_destroyed_count, POWERUP_BOOM_CHAIN_EXPLOSIONS)
+                sound_asset = self.asset_loader.assets["sounds"].get("asteroid_explode")
+                if sound_asset:
+                    for i in range(num_sounds_to_play):
+                        self.scheduled_sounds.append((sound_asset, i * POWERUP_BOOM_CHAIN_DELAY))
+                
+                self.boom_center = None # Consume the boom center, effect applied
+            self.boom_effect_active = False # Reset active flag, flash timer will handle visuals
+
+        # Process scheduled sounds
+        if self.scheduled_sounds:
+            for i in range(len(self.scheduled_sounds) - 1, -1, -1): # Iterate backwards for safe removal
+                sound_asset, delay = self.scheduled_sounds[i]
+                delay -= dt
+                if delay <= 0:
+                    sound_asset.play()
+                    self.scheduled_sounds.pop(i)
+                else:
+                    self.scheduled_sounds[i] = (sound_asset, delay)
+
+        # Update flash timer (even if effect_active was reset, flash continues)
+        if self.boom_flash_timer > 0:
+            self.boom_flash_timer -= dt
+            if self.boom_flash_timer < 0:
+                self.boom_flash_timer = 0
         
         # Update stars
         self.star_field.update(dt)
@@ -248,40 +335,82 @@ class GameState:
         if self.asteroid_spawn_timer >= self.next_spawn_interval:
             self.asteroid_spawn_timer = 0
             self.next_spawn_interval = self._get_spawn_interval()
-            
-            # Choose asteroid type and size based on difficulty
-            type_id, size_category = self._choose_asteroid_type()
-            
-            # Get current difficulty
             current_difficulty = self.settings_manager.get_difficulty()
+
+            # Decide whether to spawn an asteroid or a power-up
+            if random.random() < POWERUP_SPAWN_CHANCE and POWERUP_TYPES:
+                # Spawn a power-up
+                # For now, let's assume we only have the 'boom' power-up or pick one if multiple exist
+                # TODO: Implement a weighted choice if multiple power-ups with different rarities exist
+                powerup_type_id_to_spawn = POWERUP_BOOM_ID # Default to boom for now
+                
+                if powerup_type_id_to_spawn in self.asset_loader.assets["powerup_imgs"]:
+                    powerup_image = self.asset_loader.assets["powerup_imgs"][powerup_type_id_to_spawn]
+                    
+                    # Determine spawn position (similar to asteroids, from outside screen edges)
+                    spawn_side = random.randint(0, 3) # 0: top, 1: right, 2: bottom, 3: left
+                    powerup_rect_temp = powerup_image.get_rect() # Get rect for size
+                    
+                    if spawn_side == 0: # Top
+                        x = random.randint(0, self.screen_width)
+                        y = -powerup_rect_temp.height
+                    elif spawn_side == 1: # Right
+                        x = self.screen_width + powerup_rect_temp.width
+                        y = random.randint(0, self.screen_height)
+                    elif spawn_side == 2: # Bottom
+                        x = random.randint(0, self.screen_width)
+                        y = self.screen_height + powerup_rect_temp.height
+                    else: # Left
+                        x = -powerup_rect_temp.width
+                        y = random.randint(0, self.screen_height)
+
+                    new_powerup = PowerUp(
+                        initial_position=(x, y),
+                        powerup_type_id=powerup_type_id_to_spawn,
+                        powerup_image_surface=powerup_image,
+                        screen_width=self.screen_width,
+                        screen_height=self.screen_height
+                    )
+                    self.all_sprites.add(new_powerup)
+                    self.powerups.add(new_powerup)
+                else:
+                    print(f"Warning: Image for powerup type '{powerup_type_id_to_spawn}' not loaded.")
+
+            else:
+                # Spawn an asteroid
+                type_id, size_category = self._choose_asteroid_type()
+                new_asteroid = Asteroid(
+                    self.particle_system, 
+                    self.asset_loader,
+                    type_id=type_id,
+                    size_category=size_category,
+                    difficulty=current_difficulty,
+                    screen_width=self.screen_width,
+                    screen_height=self.screen_height
+                )
+                self.all_sprites.add(new_asteroid)
+                self.asteroids.add(new_asteroid)
             
-            # Create new asteroid
-            new_asteroid = Asteroid(
-                self.particle_system, 
-                self.asset_loader,
-                type_id=type_id,
-                size_category=size_category,
-                difficulty=current_difficulty,  # Always pass current difficulty to the asteroid
-                screen_width=self.screen_width,
-                screen_height=self.screen_height
-            )
-            self.all_sprites.add(new_asteroid)
-            self.asteroids.add(new_asteroid)
-            
-        # Collision detection
-        hits = pygame.sprite.spritecollide(self.player, self.asteroids, False, pygame.sprite.collide_circle)
-        for asteroid in hits:
+        # Collision detection for asteroids
+        asteroid_hits = pygame.sprite.spritecollide(self.player, self.asteroids, False, pygame.sprite.collide_circle)
+        for asteroid in asteroid_hits:
             if not self.player.invulnerable:
-                # Apply damage from asteroid
                 damage_applied = self.player.take_damage(asteroid.damage)
                 if damage_applied:
-                    # Check if player died
                     if self.player.health <= 0:
-                        # Start transition to game over
                         self.transition_out = True
                         self.transition_timer = 0
                         break
         
+        # Collision detection for power-ups
+        powerup_hits = pygame.sprite.spritecollide(self.player, self.powerups, True, pygame.sprite.collide_circle)
+        # The `True` argument will remove the power-up from all groups it belongs to upon collision
+        for powerup in powerup_hits:
+            if self.asset_loader.assets["sounds"]["powerup_collect"]:
+                self.asset_loader.assets["sounds"]["powerup_collect"].play()
+            powerup.activate(self) # Pass GameState instance for context if needed by activate method
+            # The powerup.activate method should call self.kill() or it's already removed by spritecollide
+
         # Update score based on time survived
         self.score += dt * 10
         
@@ -353,6 +482,16 @@ class GameState:
             fade_surface.set_alpha(self.fade_alpha)
             surface.blit(fade_surface, (0, 0))
             
+        # Draw boom flash effect if active
+        if self.boom_flash_timer > 0:
+            flash_alpha = 255 * (self.boom_flash_timer / POWERUP_BOOM_FLASH_DURATION)
+            flash_alpha = min(255, max(0, int(flash_alpha))) # Clamp between 0-255
+            
+            flash_surface = pygame.Surface((self.screen_width, self.screen_height))
+            flash_surface.fill(POWERUP_BOOM_FLASH_COLOR)
+            flash_surface.set_alpha(flash_alpha)
+            surface.blit(flash_surface, (0,0))
+
         # Draw difficulty notification
         if self.show_difficulty_message:
             # Calculate alpha (fade out towards the end)

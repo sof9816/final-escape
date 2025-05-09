@@ -30,12 +30,12 @@ class MenuAsteroid:
         size_range = (35, 55)
         self.size = random.randint(size_range[0], size_range[1])
         
-        # Load and scale asteroid image using the appropriate resolution directory
-        res_dir = asset_loader.image_size_dir  # Get the resolution dir (1x, 2x, 3x)
-        asteroid_path = os.path.join("assets/images", res_dir, f"a{self.asteroid_type}.png")
+        # Load and scale asteroid image using a path relative to the resolution directory
+        # asset_loader.load_image will construct the full path (e.g., assets/images/2x/a0.png)
+        asteroid_relative_path = f"a{self.asteroid_type}.png"
         
         self.image_original = asset_loader.load_image(
-            asteroid_path,
+            asteroid_relative_path, # Pass relative path
             scale=(self.size, self.size)
         )
         self.image = self.image_original.copy()
@@ -154,11 +154,12 @@ class MenuPlayer:
         
         # Load player image using the appropriate resolution directory
         res_dir = asset_loader.image_size_dir  # Get the resolution dir (1x, 2x, 3x)
+        # Construct the "old style" path for the ship, as requested
         ship_path = os.path.join("assets/images", res_dir, "ship.png")
         
         # Load player image
         self.image_original = asset_loader.load_image(
-            ship_path,
+            ship_path, # Pass the pre-constructed path
             scale=(PLAYER_SIZE, PLAYER_SIZE)
         )
         self.image = self.image_original.copy()

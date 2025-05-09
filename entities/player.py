@@ -4,7 +4,6 @@ Player entity for Final Escape game.
 import pygame
 import random
 import math
-import os
 from pygame.math import Vector2
 from constants import (
     PLAYER_SIZE, PLAYER_SPEED, PLAYER_ACCELERATION, PLAYER_DECELERATION,
@@ -14,22 +13,18 @@ from constants import (
 class Player(pygame.sprite.Sprite):
     """Player class representing the spaceship controlled by the user."""
     
-    def __init__(self, pos, particle_system, asset_loader):
+    def __init__(self, pos, player_image_surface, particle_system):
         """Initialize the player sprite.
         
         Args:
             pos: Initial position (x, y)
+            player_image_surface: Pre-loaded pygame.Surface for the player's image
             particle_system: ParticleSystem instance for visual effects
-            asset_loader: AssetLoader instance for loading images
         """
         super().__init__()
         
-        # Get appropriate resolution directory (1x, 2x, 3x)
-        res_dir = asset_loader.image_size_dir
-        ship_path = os.path.join("assets/images", res_dir, "ship.png")
-        
-        # Load the player image
-        self.image_original = asset_loader.load_image(ship_path, scale=(PLAYER_SIZE, PLAYER_SIZE))
+        # Use the pre-loaded player image
+        self.image_original = player_image_surface
         self.image = self.image_original.copy()
         self.rect = self.image.get_rect(center=pos)
         

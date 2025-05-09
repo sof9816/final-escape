@@ -59,13 +59,11 @@ class Asteroid(pygame.sprite.Sprite):
         size_range = ASTEROID_SIZES[self.size_category]
         self.actual_size = random.randint(size_range["min"], size_range["max"])
         
-        # Load and scale asteroid image from the appropriate resolution directory
-        res_dir = asset_loader.image_size_dir  # Get the resolution dir (1x, 2x, 3x)
-        asteroid_path = os.path.join("assets/images", res_dir, f"a{self.asteroid_type}.png")
-        
+        # Load and scale asteroid image using relative path
+        relative_asteroid_path = f"a{self.asteroid_type}.png"
         # Ensure we load with proper transparency
         self.image_original = asset_loader.load_image(
-            asteroid_path, 
+            relative_asteroid_path, 
             convert_alpha=True,
             scale=(self.actual_size, self.actual_size)
         )

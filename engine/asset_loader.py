@@ -8,7 +8,9 @@ import pygame
 from constants import (
     SCREEN_WIDTH, SCREEN_HEIGHT, PLAYER_SIZE, ASTEROID_SIZES,
     SCORE_FONT_SIZE, GAME_OVER_FONT_SIZE, TITLE_FONT_SIZE, 
-    INSTRUCTION_FONT_SIZE, COUNTDOWN_FONT_SIZE
+    INSTRUCTION_FONT_SIZE, COUNTDOWN_FONT_SIZE,
+    POWERUP_TYPES, POWERUP_SIZE,
+    SOUND_POWERUP_COLLECT, SOUND_EXPLOSION_MAIN, SOUND_ASTEROID_EXPLODE
 )
 
 class AssetLoader:
@@ -41,44 +43,80 @@ class AssetLoader:
         if not pygame.mixer.get_init():
             pygame.mixer.init()
             
-    def load_image(self, path, convert_alpha=True, scale=None, use_size_dir=False):
+    def load_image(self, relative_path, convert_alpha=True, scale=None):
         """
-        Load an image from the specified path, applying conversions and scaling if needed.
+        Load an image from a path relative to 'assets/images/{resolution_dir}/', 
+        applying conversions and scaling if needed.
         
         Args:
-            path: Path to the image file
+            relative_path: Relative path to the image file (e.g., "ship.png", "power-ups/boom.png")
             convert_alpha: Whether to convert the image for alpha transparency
             scale: Optional tuple (width, height) to scale the image
-            use_size_dir: Whether to use the size directory (1x, 2x, 3x) based on screen resolution
             
         Returns:
             Loaded and processed pygame.Surface
         """
-        # Modify path for resolution-specific assets if needed
-        if use_size_dir:
-            # Extract base directory and filename
-            base_dir = os.path.dirname(path)
-            filename = os.path.basename(path)
+        # Determine how to construct the full_path based on relative_path format
+        if relative_path.startswith("assets/images/"):
+            # "Old style" or pre-constructed path - use mostly as is.
+            # This assumes self.image_size_dir might be part of it, or it's a direct 1x path.
+            full_path = relative_path
+            # We could add a check here: if self.image_size_dir is not in full_path and it's not 1x, print a warning.
+            # For now, assume if it starts with "assets/images/", it's intended as a specific path.
+            print(f"AssetLoader: Using provided path for image: {full_path}")
+        else:
+            # "New style" - path is relative to the current resolution directory
+            full_path = os.path.join("assets/images", self.image_size_dir, relative_path)
+            print(f"AssetLoader: Constructed path for image: {full_path} (from relative: '{relative_path}')")
+
+        # Check if the resolution-specific asset exists
+        if not os.path.exists(full_path):
+            # If the original path was already an "old style" specific path, don't try 1x fallback again unless it was NOT a 1x path.
+            # If it was a "new style" constructed path, try 1x.
+            attempt_1x_fallback = not relative_path.startswith("assets/images/") or not "/1x/" in relative_path
             
-            # Create new path with size directory
-            resolution_path = os.path.join(base_dir, self.image_size_dir, filename)
-            
-            # Use resolution path if it exists, otherwise fall back to original
-            if os.path.exists(resolution_path):
-                path = resolution_path
+            if attempt_1x_fallback:
+                print(f"AssetLoader: Image not found at '{full_path}'. Attempting 1x fallback.")
+                fallback_path = os.path.join("assets/images", "1x", relative_path) # For new style, relative_path is simple
+                if relative_path.startswith("assets/images/"): # If old style, need to reconstruct 1x path carefully
+                    # e.g., assets/images/2x/ship.png -> assets/images/1x/ship.png
+                    parts = relative_path.split(os.sep)
+                    if len(parts) > 2 and parts[0] == "assets" and parts[1] == "images":
+                        parts[2] = "1x"
+                        fallback_path = os.path.join(*parts)
+                    else: # Cannot reliably make a 1x path from this old style
+                        fallback_path = None 
+
+                if fallback_path and os.path.exists(fallback_path):
+                    print(f"AssetLoader: Falling back to 1x: {fallback_path}")
+                    full_path = fallback_path
+                else:
+                    print(f"AssetLoader: Image also not found in 1x fallback (tried '{fallback_path if fallback_path else 'N/A'}').")
+                    print(f"AssetLoader: Using magenta fallback for '{relative_path}' scaled to {scale if scale else 'original'}.")
+                    fallback_surface = pygame.Surface(scale if scale else (50, 50))
+                    fallback_surface.fill((255, 0, 255))
+                    error_cache_key = f"{relative_path}_{self.image_size_dir}_{scale}_error"
+                    self.images[error_cache_key] = fallback_surface
+                    return fallback_surface
             else:
-                print(f"Warning: Resolution-specific asset not found: {resolution_path}")
-        
-        # Check if already cached
-        cache_key = f"{path}_{scale}"
+                # Path was specific (e.g. assets/images/1x/file.png) and not found, no further fallback.
+                print(f"AssetLoader: Specific path '{full_path}' not found. Using magenta fallback for '{relative_path}'.")
+                fallback_surface = pygame.Surface(scale if scale else (50, 50))
+                fallback_surface.fill((255, 0, 255))
+                error_cache_key = f"{relative_path}_{self.image_size_dir}_{scale}_error"
+                self.images[error_cache_key] = fallback_surface
+                return fallback_surface
+
+        # Check if already cached using the relative_path as part of the key for uniqueness
+        cache_key = f"{relative_path}_{self.image_size_dir}_{scale}"
         if cache_key in self.images:
             return self.images[cache_key]
         
         try:
             if convert_alpha:
-                image = pygame.image.load(path).convert_alpha()
+                image = pygame.image.load(full_path).convert_alpha()
             else:
-                image = pygame.image.load(path).convert()
+                image = pygame.image.load(full_path).convert()
                 
             if scale:
                 image = pygame.transform.scale(image, scale)
@@ -88,11 +126,12 @@ class AssetLoader:
             return image
             
         except pygame.error as e:
-            print(f"Error loading image {path}: {e}")
+            print(f"Error loading image {full_path}: {e}")
             
             # Create a fallback surface
             fallback = pygame.Surface(scale if scale else (50, 50))
             fallback.fill((255, 0, 255))  # Bright magenta to indicate error
+            self.images[cache_key] = fallback # Cache fallback under the specific path to avoid re-attempts
             return fallback
     
     def load_font(self, name, size):
@@ -112,11 +151,23 @@ class AssetLoader:
             return self.fonts[cache_key]
         
         try:
-            # Check if it's a file path
-            if os.path.exists(name):
+            # Handle case where a default system/pygame font is explicitly requested
+            if name is None:
+                # Attempt to load a default system font.
+                # pygame.font.Font(None, size) is often used for the "default" font.
+                # pygame.font.SysFont(None, size) might also work or be more explicit for system default.
+                # For robustness, we can try Font(None, size) first.
+                try:
+                    font = pygame.font.Font(None, size)
+                except pygame.error:
+                    # Fallback if Font(None, size) fails (should be rare for basic default)
+                    print(f"Warning: pygame.font.Font(None, {size}) failed. Trying SysFont as absolute fallback.")
+                    font = pygame.font.SysFont(None, size) # This should ideally find *something*
+            # Check if it's a file path (only if name is not None)
+            elif os.path.exists(name):
                 font = pygame.font.Font(name, size)
             else:
-                # Try to use a system font
+                # Try to use a system font if name is provided but file doesn't exist
                 font = pygame.font.SysFont(name, size)
                 
             # Cache the loaded font
@@ -260,24 +311,28 @@ class AssetLoader:
             Dictionary containing all loaded assets
         """
         # Base asset paths
-        base_images_dir = "assets/images"
+        # These are now less critical as load_image constructs paths from relative_path
+        # base_images_dir = "assets/images" 
         fonts_dir = "assets/fonts"
-        sound_dir = "assets/sound"
+        sound_dir = "assets/sound" # Still used for sounds
         
-        # Path to resolution-specific assets
-        res_dir = os.path.join(base_images_dir, self.image_size_dir)
+        # Path to resolution-specific assets is handled by load_image
+        # res_dir = os.path.join(base_images_dir, self.image_size_dir)
         
-        # Resolution-specific player and asteroid images
-        ship_path = os.path.join(res_dir, "ship.png")
+        # Player image relative path
+        ship_relative_path = "ship.png"
         
         self.assets = {
-            # Load player image (ship) from the appropriate resolution directory
-            "player_img": self.load_image(ship_path, scale=(PLAYER_SIZE, PLAYER_SIZE)),
+            # Load player image (ship)
+            "player_img": self.load_image(ship_relative_path, scale=(PLAYER_SIZE, PLAYER_SIZE)),
             
             # Container for asteroid images
             "asteroid_imgs": {},
+
+            # Container for power-up images
+            "powerup_imgs": {},
             
-            # Music paths
+            # Music paths (direct paths, not using load_image)
             "music": {
                 "menu": os.path.join(sound_dir, "Lone Knight in the Stars(Menu Scene).ogg"),
                 "game": os.path.join(sound_dir, "Pixel Knight Asteroid Chase(Game Scene).ogg"),
@@ -287,18 +342,49 @@ class AssetLoader:
             # Sound effects
             "sounds": {
                 "menu_navigate": self.load_sound(os.path.join(sound_dir, "menu_navigate.wav"), volume=0.4),
-                "menu_select": self.load_sound(os.path.join(sound_dir, "menu_select.wav"), volume=0.5)
+                "menu_select": self.load_sound(os.path.join(sound_dir, "menu_select.wav"), volume=0.5),
+                # New sounds
+                "powerup_collect": self.load_sound(SOUND_POWERUP_COLLECT, volume=0.9),
+                "explosion_main": self.load_sound(SOUND_EXPLOSION_MAIN, volume=0.8),
+                "asteroid_explode": self.load_sound(SOUND_ASTEROID_EXPLODE, volume=0.1)
             },
             
-            # Fonts
+            # Fonts - Ensure this key exists
             "fonts": {}
         }
         
-        # Load asteroid images (a0-a6) from the appropriate resolution directory
+        # Initialize fonts with fallbacks first to ensure keys always exist
+        default_font_regular = pygame.font.Font(None, SCORE_FONT_SIZE) # Generic default for sizes
+        default_font_medium = pygame.font.Font(None, INSTRUCTION_FONT_SIZE)
+        default_font_bold_title = pygame.font.Font(None, TITLE_FONT_SIZE)
+        default_font_bold_game_over = pygame.font.Font(None, GAME_OVER_FONT_SIZE)
+        default_font_bold_countdown = pygame.font.Font(None, COUNTDOWN_FONT_SIZE)
+
+        self.assets["fonts"]["score"] = self.load_font(None, SCORE_FONT_SIZE) # Will use SysFont or default
+        self.assets["fonts"]["game_over"] = self.load_font(None, GAME_OVER_FONT_SIZE)
+        self.assets["fonts"]["title"] = self.load_font(None, TITLE_FONT_SIZE)
+        self.assets["fonts"]["instruction"] = self.load_font(None, INSTRUCTION_FONT_SIZE)
+        self.assets["fonts"]["countdown"] = self.load_font(None, COUNTDOWN_FONT_SIZE)
+
+        # Load asteroid images (a0-a6)
         for i in range(7):
-            a_path = os.path.join(res_dir, f"a{i}.png")
-            max_size = ASTEROID_SIZES["large"]["max"]
-            self.assets["asteroid_imgs"][i] = self.load_image(a_path, scale=(max_size, max_size))
+            a_relative_path = f"a{i}.png" # Asteroids are at the root of the res_dir
+            max_size = ASTEROID_SIZES["large"]["max"] # Example scaling, adjust as needed
+            # self.assets["asteroid_imgs"][i] = self.load_image(a_path, scale=(max_size, max_size))
+            # The asteroid entity itself handles loading its specific image and scaling now.
+            # We can pre-load them here if desired, or let entities load them.
+            # For consistency with how asteroids are loaded in Asteroid class, let's remove direct loading here
+            # and ensure Asteroid class uses the new load_image method correctly.
+            # AssetLoader will still cache them if Asteroid class calls load_image.
+            pass # Asteroid images are loaded by the Asteroid class itself using asset_loader.load_image
+
+        # Load power-up images
+        for powerup_id, details in POWERUP_TYPES.items():
+            powerup_relative_path = os.path.join("power-ups", details["image_file"])
+            self.assets["powerup_imgs"][powerup_id] = self.load_image(
+                powerup_relative_path, 
+                scale=(POWERUP_SIZE, POWERUP_SIZE)
+            )
             
         # Load fonts
         try:
@@ -310,7 +396,7 @@ class AssetLoader:
                 "bold": os.path.join(fonts_dir, "PixelifySans-Bold.ttf")
             }
             
-            # Load fonts if they exist
+            # Load fonts if they exist, overwriting the fallbacks
             self.assets["fonts"]["score"] = self.load_font(
                 font_files["regular"] if os.path.exists(font_files["regular"]) else None, 
                 SCORE_FONT_SIZE
@@ -340,10 +426,11 @@ class AssetLoader:
             self.assets["logo_img"] = self.create_text_logo("FINAL ESCAPE")
             
         except Exception as e:
-            print(f"Error loading fonts or creating logo: {e}")
-            # Create a fallback logo
+            print(f"Error loading custom fonts or creating logo: {e}. Fallback fonts will be used.")
+            # Fallback logo is created
             fallback_font = pygame.font.Font(None, TITLE_FONT_SIZE)
             self.assets["logo_img"] = fallback_font.render("FINAL ESCAPE", True, (255, 255, 255))
+            # Fonts have already been set to fallbacks if custom loading failed or files are missing.
         
         return self.assets
         
