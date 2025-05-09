@@ -6,6 +6,7 @@ Constants for the Final Escape game.
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
 BACKGROUND_COLOR = (0, 0, 0)  # Black
+FULLSCREEN = True  # Flag to control fullscreen mode
 
 # Player settings
 PLAYER_SIZE = 60

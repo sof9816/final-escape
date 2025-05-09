@@ -2,19 +2,25 @@
 Main Menu for Final Escape game.
 """
 import pygame
-from constants import STATE_COUNTDOWN, STATE_SETTINGS
+from constants import STATE_COUNTDOWN, STATE_SETTINGS, SCREEN_WIDTH, SCREEN_HEIGHT
 from menu.menu_component import Menu
 from settings.settings_manager import SettingsManager
 
 class MainMenu(Menu):
     """Main menu for Final Escape."""
     
-    def __init__(self, asset_loader):
+    def __init__(self, asset_loader, screen_width=None, screen_height=None):
         """Initialize the main menu.
         
         Args:
             asset_loader: AssetLoader instance for loading fonts
+            screen_width: Width of the screen (defaults to SCREEN_WIDTH from constants)
+            screen_height: Height of the screen (defaults to SCREEN_HEIGHT from constants)
         """
+        # Store screen dimensions
+        self.screen_width = screen_width if screen_width is not None else SCREEN_WIDTH
+        self.screen_height = screen_height if screen_height is not None else SCREEN_HEIGHT
+        
         # Get assets
         assets = asset_loader.load_game_assets()
         
@@ -23,7 +29,7 @@ class MainMenu(Menu):
         item_font = assets["fonts"]["instruction"] if "fonts" in assets and "instruction" in assets["fonts"] else None
         
         # Initialize the base menu with title
-        super().__init__("FINAL ESCAPE", title_font, item_font, asset_loader)
+        super().__init__("FINAL ESCAPE", title_font, item_font, asset_loader, self.screen_width, self.screen_height)
         
         # Initialize settings manager to access saved settings
         self.settings_manager = SettingsManager()

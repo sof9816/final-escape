@@ -13,17 +13,23 @@ from constants import (
 class GameOverState:
     """The game over state shown when the player dies."""
     
-    def __init__(self, star_field, particle_system, asset_loader=None):
+    def __init__(self, star_field, particle_system, asset_loader=None, screen_width=None, screen_height=None):
         """Initialize the game over state.
         
         Args:
             star_field: StarField instance for background stars
             particle_system: ParticleSystem instance for effects
             asset_loader: Optional AssetLoader instance for loading fonts
+            screen_width: Width of the screen (defaults to SCREEN_WIDTH from constants)
+            screen_height: Height of the screen (defaults to SCREEN_HEIGHT from constants)
         """
         self.star_field = star_field
         self.particle_system = particle_system
         self.asset_loader = asset_loader
+        
+        # Store screen dimensions
+        self.screen_width = screen_width if screen_width is not None else SCREEN_WIDTH
+        self.screen_height = screen_height if screen_height is not None else SCREEN_HEIGHT
         
         # Setup fonts - try to use custom fonts if asset_loader is provided
         if asset_loader:
@@ -145,19 +151,19 @@ class GameOverState:
         # Draw game over text
         game_over_text = "GAME OVER"
         game_over_surface = self.game_over_font.render(game_over_text, True, (255, 255, 255))
-        game_over_rect = game_over_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 3))
+        game_over_rect = game_over_surface.get_rect(center=(self.screen_width // 2, self.screen_height // 3))
         surface.blit(game_over_surface, game_over_rect)
         
         # Draw score
         score_text = f"Score: {int(self.final_score)}"
         score_surface = self.game_over_font.render(score_text, True, SCORE_COLOR)
-        score_rect = score_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+        score_rect = score_surface.get_rect(center=(self.screen_width // 2, self.screen_height // 2))
         surface.blit(score_surface, score_rect)
         
         # Draw instruction text with pulsing effect
         instruction_text = "Press any key to return to menu"
         instruction_surface = self.instruction_font.render(instruction_text, True, (255, 255, 255))
-        instruction_rect = instruction_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT * 3 // 4))
+        instruction_rect = instruction_surface.get_rect(center=(self.screen_width // 2, self.screen_height * 3 // 4))
         
         # Create a surface with alpha for the pulsing effect
         alpha_surface = pygame.Surface(instruction_surface.get_size(), pygame.SRCALPHA)

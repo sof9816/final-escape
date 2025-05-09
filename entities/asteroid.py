@@ -18,7 +18,7 @@ from engine.utils import weighted_random_choice
 class Asteroid(pygame.sprite.Sprite):
     """Asteroid class representing obstacles the player must avoid."""
     
-    def __init__(self, particle_system, asset_loader, type_id=None, size_category=None, difficulty="Normal Space"):
+    def __init__(self, particle_system, asset_loader, type_id=None, size_category=None, difficulty="Normal Space", screen_width=None, screen_height=None):
         """Initialize an asteroid with random properties.
         
         Args:
@@ -27,11 +27,17 @@ class Asteroid(pygame.sprite.Sprite):
             type_id: Optional specific asteroid type (0-6) to use
             size_category: Optional specific size category to use
             difficulty: Current game difficulty level
+            screen_width: Width of the screen (defaults to SCREEN_WIDTH from constants)
+            screen_height: Height of the screen (defaults to SCREEN_HEIGHT from constants)
         """
         super().__init__()
         
         # Store the difficulty
         self.difficulty = difficulty
+        
+        # Store screen dimensions
+        self.screen_width = screen_width if screen_width is not None else SCREEN_WIDTH
+        self.screen_height = screen_height if screen_height is not None else SCREEN_HEIGHT
         
         # Particle system for effects
         self.particle_system = particle_system
@@ -71,17 +77,17 @@ class Asteroid(pygame.sprite.Sprite):
         spawn_side = random.randint(0, 3)  # 0: top, 1: right, 2: bottom, 3: left
         
         if spawn_side == 0:  # Top
-            x = random.randint(0, SCREEN_WIDTH)
+            x = random.randint(0, self.screen_width)
             y = -self.actual_size
         elif spawn_side == 1:  # Right
-            x = SCREEN_WIDTH + self.actual_size
-            y = random.randint(0, SCREEN_HEIGHT)
+            x = self.screen_width + self.actual_size
+            y = random.randint(0, self.screen_height)
         elif spawn_side == 2:  # Bottom
-            x = random.randint(0, SCREEN_WIDTH)
-            y = SCREEN_HEIGHT + self.actual_size
+            x = random.randint(0, self.screen_width)
+            y = self.screen_height + self.actual_size
         else:  # Left
             x = -self.actual_size
-            y = random.randint(0, SCREEN_HEIGHT)
+            y = random.randint(0, self.screen_height)
             
         # Set position and create rect
         self.position = Vector2(x, y)
@@ -93,8 +99,8 @@ class Asteroid(pygame.sprite.Sprite):
         self.speed = base_speed * multiplier
         
         # Calculate velocity toward center-ish of screen (with randomization)
-        target_x = SCREEN_WIDTH // 2 + random.randint(-200, 200)
-        target_y = SCREEN_HEIGHT // 2 + random.randint(-150, 150)
+        target_x = self.screen_width // 2 + random.randint(-200, 200)
+        target_y = self.screen_height // 2 + random.randint(-150, 150)
         
         direction = Vector2(target_x - x, target_y - y).normalize()
         self.velocity = direction * self.speed
@@ -197,9 +203,9 @@ class Asteroid(pygame.sprite.Sprite):
         # Remove if off screen with buffer
         buffer = self.actual_size * 2
         if (self.position.x < -buffer or 
-            self.position.x > SCREEN_WIDTH + buffer or
+            self.position.x > self.screen_width + buffer or
             self.position.y < -buffer or
-            self.position.y > SCREEN_HEIGHT + buffer):
+            self.position.y > self.screen_height + buffer):
             self.kill()
             
         # Handle particle effects

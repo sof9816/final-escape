@@ -34,14 +34,20 @@ class SettingItem:
 class SettingsMenu(Menu):
     """Settings menu for Final Escape."""
     
-    def __init__(self, asset_loader, settings_manager, star_field):
+    def __init__(self, asset_loader, settings_manager, star_field, screen_width=None, screen_height=None):
         """Initialize the settings menu.
         
         Args:
             asset_loader: AssetLoader instance for loading fonts
             settings_manager: SettingsManager for accessing/modifying settings
             star_field: StarField instance for adjusting star opacity
+            screen_width: Width of the screen (defaults to SCREEN_WIDTH from constants)
+            screen_height: Height of the screen (defaults to SCREEN_HEIGHT from constants)
         """
+        # Store screen dimensions
+        self.screen_width = screen_width if screen_width is not None else SCREEN_WIDTH
+        self.screen_height = screen_height if screen_height is not None else SCREEN_HEIGHT
+        
         # Get assets
         assets = asset_loader.load_game_assets()
         
@@ -50,7 +56,7 @@ class SettingsMenu(Menu):
         item_font = assets["fonts"]["instruction"] if "fonts" in assets and "instruction" in assets["fonts"] else None
         
         # Initialize the base menu with title
-        super().__init__("SETTINGS", title_font, item_font, asset_loader)
+        super().__init__("SETTINGS", title_font, item_font, asset_loader, self.screen_width, self.screen_height)
         
         # Store references to manager and star field
         self.asset_loader = asset_loader
@@ -288,7 +294,7 @@ class SettingsMenu(Menu):
         
         # Draw a subtle background overlay
         if self.background_alpha > 0:
-            bg_overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            bg_overlay = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
             bg_overlay.fill((0, 0, 30, self.background_alpha))
             bg_overlay.set_alpha(alpha)
             surface.blit(bg_overlay, (0, 0))
@@ -352,7 +358,7 @@ class SettingsMenu(Menu):
                 actual_alpha = min(alpha, item.alpha)
                 text_surface = self.item_font.render(item.text, True, color)
                 text_surface.set_alpha(actual_alpha)
-                text_rect = text_surface.get_rect(center=(SCREEN_WIDTH // 2, item_y))
+                text_rect = text_surface.get_rect(center=(self.screen_width // 2, item_y))
                 
                 # Store the rect for mouse detection
                 item.rect = text_rect.inflate(20, 10)
@@ -419,7 +425,7 @@ class SettingsMenu(Menu):
                 # Draw description text with better positioning
                 if setting_item.description:
                     desc_surface = self.description_font.render(setting_item.description, True, (180, 180, 180))
-                    desc_rect = desc_surface.get_rect(center=(SCREEN_WIDTH // 2, item_y + 25))
+                    desc_rect = desc_surface.get_rect(center=(self.screen_width // 2, item_y + 25))
                     
                     # Apply opacity
                     desc_with_alpha = desc_surface.copy()
@@ -448,7 +454,7 @@ class SettingsMenu(Menu):
                     ]
                     
                     # Create surface for arrows with opacity
-                    arrow_surface = pygame.Surface((SCREEN_WIDTH, 50), pygame.SRCALPHA)
+                    arrow_surface = pygame.Surface((self.screen_width, 50), pygame.SRCALPHA)
                     
                     # Draw arrows on the surface
                     pygame.draw.polygon(arrow_surface, (*arrow_color, alpha), left_arrow_points)
@@ -463,13 +469,13 @@ class SettingsMenu(Menu):
                         self.difficulty_right_rect = pygame.Rect(right_arrow_points[0][0] - 10, right_arrow_points[0][1] - 10, 20, 20)
                     
                     # Draw arrows
-                    arrow_rect = arrow_surface.get_rect(center=(SCREEN_WIDTH // 2, item_y))
+                    arrow_rect = arrow_surface.get_rect(center=(self.screen_width // 2, item_y))
                     surface.blit(arrow_surface, arrow_rect)
                     
                     # Draw instruction hint with improved positioning
                     hint_text = "< Use arrow keys >"
                     hint_surface = self.description_font.render(hint_text, True, (150, 150, 150))
-                    hint_rect = hint_surface.get_rect(center=(SCREEN_WIDTH // 2, item_y + 45))
+                    hint_rect = hint_surface.get_rect(center=(self.screen_width // 2, item_y + 45))
                     
                     # Apply opacity
                     hint_with_alpha = hint_surface.copy()
@@ -479,12 +485,12 @@ class SettingsMenu(Menu):
         # Draw help text if enabled
         if self.show_help and self.help_surfaces and self.appear_progress >= 0.8:
             help_alpha = int(min(255, alpha * (self.appear_progress - 0.8) * 5))
-            help_y = SCREEN_HEIGHT - 20 * len(self.help_surfaces) - 10
+            help_y = self.screen_height - 20 * len(self.help_surfaces) - 10
             
             for i, help_surface in enumerate(self.help_surfaces):
                 help_surface_copy = help_surface.copy()
                 help_surface_copy.set_alpha(help_alpha)
-                help_rect = help_surface_copy.get_rect(bottomright=(SCREEN_WIDTH - 20, help_y + i * 20))
+                help_rect = help_surface_copy.get_rect(bottomright=(self.screen_width - 20, help_y + i * 20))
                 surface.blit(help_surface_copy, help_rect)
                 
         # Draw notification if exists
@@ -502,7 +508,7 @@ class SettingsMenu(Menu):
             notif_surface.set_alpha(notif_alpha)
             
             # Create background
-            notif_rect = notif_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 100))
+            notif_rect = notif_surface.get_rect(center=(self.screen_width // 2, self.screen_height - 100))
             notif_bg = pygame.Surface((notif_rect.width + 20, notif_rect.height + 10), pygame.SRCALPHA)
             notif_bg.fill((0, 0, 0, int(150 * fade)))
             notif_bg_rect = notif_bg.get_rect(center=notif_rect.center)

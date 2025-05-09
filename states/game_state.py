@@ -21,17 +21,23 @@ from settings.settings_manager import SettingsManager
 class GameState:
     """The main gameplay state."""
     
-    def __init__(self, asset_loader, star_field, particle_system):
+    def __init__(self, asset_loader, star_field, particle_system, screen_width=None, screen_height=None):
         """Initialize the game state.
         
         Args:
             asset_loader: AssetLoader instance for loading assets
             star_field: StarField instance for background stars
             particle_system: ParticleSystem instance for effects
+            screen_width: Width of the screen (defaults to SCREEN_WIDTH from constants)
+            screen_height: Height of the screen (defaults to SCREEN_HEIGHT from constants)
         """
         self.asset_loader = asset_loader
         self.star_field = star_field
         self.particle_system = particle_system
+        
+        # Store screen dimensions
+        self.screen_width = screen_width if screen_width is not None else SCREEN_WIDTH
+        self.screen_height = screen_height if screen_height is not None else SCREEN_HEIGHT
         
         # Load settings
         self.settings_manager = SettingsManager()
@@ -48,7 +54,7 @@ class GameState:
         self.asteroids = pygame.sprite.Group()
         
         # Create player
-        self.player = Player((SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2), particle_system, asset_loader)
+        self.player = Player((self.screen_width // 2, self.screen_height // 2), particle_system, asset_loader)
         self.all_sprites.add(self.player)
         
         # Game variables
@@ -96,7 +102,7 @@ class GameState:
         self.asteroids.empty()
         
         # Create new player
-        self.player = Player((SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2), self.particle_system, self.asset_loader)
+        self.player = Player((self.screen_width // 2, self.screen_height // 2), self.particle_system, self.asset_loader)
         self.all_sprites.add(self.player)
         
         # Reset game variables
@@ -127,8 +133,8 @@ class GameState:
             
             # Create particle burst in the center of the screen
             if self.particle_system:
-                center_x = SCREEN_WIDTH // 2
-                center_y = SCREEN_HEIGHT // 2
+                center_x = self.screen_width // 2
+                center_y = self.screen_height // 2
                 
                 # Create a starburst of particles
                 for angle in range(0, 360, 10):
@@ -255,7 +261,9 @@ class GameState:
                 self.asset_loader,
                 type_id=type_id,
                 size_category=size_category,
-                difficulty=current_difficulty  # Always pass current difficulty to the asteroid
+                difficulty=current_difficulty,  # Always pass current difficulty to the asteroid
+                screen_width=self.screen_width,
+                screen_height=self.screen_height
             )
             self.all_sprites.add(new_asteroid)
             self.asteroids.add(new_asteroid)
@@ -323,11 +331,11 @@ class GameState:
         
         difficulty_text = f"Difficulty: {current_difficulty}"
         difficulty_surface = self.score_font.render(difficulty_text, True, difficulty_color)
-        difficulty_rect = difficulty_surface.get_rect(topright=(SCREEN_WIDTH - 10, 10))
+        difficulty_rect = difficulty_surface.get_rect(topright=(self.screen_width - 10, 10))
         
         # Add a subtle background for better visibility
         bg_rect = difficulty_rect.inflate(20, 10)
-        bg_rect.topright = (SCREEN_WIDTH - 5, 5)
+        bg_rect.topright = (self.screen_width - 5, 5)
         bg_surface = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
         bg_surface.fill((0, 0, 0, 128))  # Semi-transparent black
         surface.blit(bg_surface, bg_rect)
@@ -340,7 +348,7 @@ class GameState:
         
         # Draw fade overlay for transition
         if self.transition_out and self.fade_alpha > 0:
-            fade_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+            fade_surface = pygame.Surface((self.screen_width, self.screen_height))
             fade_surface.fill((0, 0, 0))
             fade_surface.set_alpha(self.fade_alpha)
             surface.blit(fade_surface, (0, 0))
@@ -366,7 +374,7 @@ class GameState:
             # Create message
             message = f"Difficulty: {current_difficulty}"
             message_surface = self.message_font.render(message, True, color)
-            message_rect = message_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 50))
+            message_rect = message_surface.get_rect(center=(self.screen_width // 2, self.screen_height // 2 - 50))
             
             # Create a background for better visibility
             bg_rect = message_rect.inflate(20, 10)
@@ -392,7 +400,7 @@ class GameState:
             subtitle = difficulty_descriptions.get(current_difficulty, "")
             if subtitle:
                 subtitle_surface = self.message_font.render(subtitle, True, color)
-                subtitle_rect = subtitle_surface.get_rect(center=(SCREEN_WIDTH // 2, message_rect.bottom + 10))
+                subtitle_rect = subtitle_surface.get_rect(center=(self.screen_width // 2, message_rect.bottom + 10))
                 
                 # Apply alpha
                 subtitle_surface.set_alpha(alpha)
@@ -408,7 +416,7 @@ class GameState:
         """
         # Position the health bar in the top left corner with a small margin
         x = 10
-        y = SCREEN_HEIGHT - HEALTH_BAR_HEIGHT - 10
+        y = self.screen_height - HEALTH_BAR_HEIGHT - 10
         
         # Calculate width of health portion
         health_width = int((self.player.health / PLAYER_MAX_HEALTH) * HEALTH_BAR_WIDTH)

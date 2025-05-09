@@ -11,10 +11,18 @@ from constants import (
 class Star:
     """Individual star object for background effect."""
     
-    def __init__(self):
-        """Initialize a star with random properties."""
-        self.x = random.randint(0, SCREEN_WIDTH)
-        self.y = random.randint(0, SCREEN_HEIGHT)
+    def __init__(self, screen_width=None, screen_height=None):
+        """Initialize a star with random properties.
+        
+        Args:
+            screen_width: Width of the screen (defaults to SCREEN_WIDTH from constants)
+            screen_height: Height of the screen (defaults to SCREEN_HEIGHT from constants)
+        """
+        self.screen_width = screen_width if screen_width is not None else SCREEN_WIDTH
+        self.screen_height = screen_height if screen_height is not None else SCREEN_HEIGHT
+        
+        self.x = random.randint(0, self.screen_width)
+        self.y = random.randint(0, self.screen_height)
         self.size = random.choice(STAR_SIZES)
         self.color = random.choice(STAR_COLORS)
         self.speed = random.choice(STAR_SPEEDS)
@@ -30,9 +38,9 @@ class Star:
         self.y += self.speed * dt
         
         # If star is offscreen, respawn at the top
-        if self.y > SCREEN_HEIGHT:
+        if self.y > self.screen_height:
             self.y = 0
-            self.x = random.randint(0, SCREEN_WIDTH)
+            self.x = random.randint(0, self.screen_width)
             
     def draw(self, surface):
         """Draw the star to the surface.
@@ -59,15 +67,20 @@ class Star:
 class StarField:
     """Collection of stars for background effect."""
     
-    def __init__(self, num_stars=NUM_STARS):
+    def __init__(self, num_stars=NUM_STARS, screen_width=None, screen_height=None):
         """Initialize the star field.
         
         Args:
             num_stars: Number of stars to create
+            screen_width: Width of the screen (defaults to SCREEN_WIDTH from constants)
+            screen_height: Height of the screen (defaults to SCREEN_HEIGHT from constants)
         """
+        self.screen_width = screen_width if screen_width is not None else SCREEN_WIDTH
+        self.screen_height = screen_height if screen_height is not None else SCREEN_HEIGHT
+        
         self.stars = []
         for _ in range(num_stars):
-            self.stars.append(Star())
+            self.stars.append(Star(self.screen_width, self.screen_height))
     
     def update(self, dt):
         """Update all stars.
@@ -96,3 +109,24 @@ class StarField:
         opacity = int(opacity_percent * 255 / 100)
         for star in self.stars:
             star.opacity = opacity 
+            
+    def set_screen_size(self, width, height):
+        """Update the screen size for all stars.
+        
+        Args:
+            width: New screen width
+            height: New screen height
+        """
+        self.screen_width = width
+        self.screen_height = height
+        
+        # Update existing stars to use new dimensions
+        for star in self.stars:
+            star.screen_width = width
+            star.screen_height = height
+            
+            # Reposition stars that would now be off-screen
+            if star.x > width:
+                star.x = random.randint(0, width)
+            if star.y > height:
+                star.y = random.randint(0, height) 

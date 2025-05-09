@@ -9,7 +9,7 @@ import sys
 from constants import (
     SCREEN_WIDTH, SCREEN_HEIGHT, STATE_MENU, STATE_COUNTDOWN, 
     STATE_PLAYING, STATE_GAME_OVER, STATE_SETTINGS,
-    FADE_DURATION, MUSIC_FADE_DURATION
+    FADE_DURATION, MUSIC_FADE_DURATION, FULLSCREEN
 )
 from engine.asset_loader import AssetLoader
 from engine.text_renderer import TextRenderer
@@ -30,7 +30,17 @@ class Game:
         pygame.mixer.init()
         
         # Create the game window
-        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        if FULLSCREEN:
+            self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+            # Get the actual screen dimensions
+            screen_info = pygame.display.Info()
+            self.screen_width = screen_info.current_w
+            self.screen_height = screen_info.current_h
+        else:
+            self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+            self.screen_width = SCREEN_WIDTH
+            self.screen_height = SCREEN_HEIGHT
+            
         pygame.display.set_caption("Final Escape")
         
         # Create the asset loader
@@ -46,8 +56,8 @@ class Game:
         # IMPROVED: Create the particle system with significantly increased particle count
         self.particle_system = ParticleSystem(max_particles=5000)  # Increased from 2000
         
-        # Create the star field
-        self.star_field = StarField()
+        # Create the star field with the correct screen dimensions
+        self.star_field = StarField(screen_width=self.screen_width, screen_height=self.screen_height)
         
         # Set up the clock
         self.clock = pygame.time.Clock()
@@ -79,10 +89,10 @@ class Game:
         settings = SettingsManager()
         
         # Create all game states with fresh settings
-        self.menu_state = MenuState(self.asset_loader, self.star_field, self.particle_system)
-        self.countdown_state = CountdownState(self.star_field, self.particle_system, self.asset_loader)
-        self.game_state = GameState(self.asset_loader, self.star_field, self.particle_system)
-        self.game_over_state = GameOverState(self.star_field, self.particle_system, self.asset_loader)
+        self.menu_state = MenuState(self.asset_loader, self.star_field, self.particle_system, self.screen_width, self.screen_height)
+        self.countdown_state = CountdownState(self.star_field, self.particle_system, self.asset_loader, self.screen_width, self.screen_height)
+        self.game_state = GameState(self.asset_loader, self.star_field, self.particle_system, self.screen_width, self.screen_height)
+        self.game_over_state = GameOverState(self.star_field, self.particle_system, self.asset_loader, self.screen_width, self.screen_height)
         
         # Apply sound settings to current music
         volume = 0.5 if settings.get_sound_enabled() else 0.0
@@ -112,6 +122,9 @@ class Game:
                     if event.key == pygame.K_ESCAPE:
                         print("ESC key pressed - exiting game")
                         running = False
+                    elif event.key == pygame.K_F11:
+                        # Toggle fullscreen mode
+                        self.toggle_fullscreen()
                     
                 # PART 1: EVENT HANDLING
                 # Pass events to current state and get next state (if any)
@@ -211,7 +224,7 @@ class Game:
         elif new_state == STATE_COUNTDOWN:
             print("Transitioning to COUNTDOWN state")
             # Reset countdown timer when entering countdown state
-            self.countdown_state = CountdownState(self.star_field, self.particle_system, self.asset_loader)
+            self.countdown_state = CountdownState(self.star_field, self.particle_system, self.asset_loader, self.screen_width, self.screen_height)
             
             # Reset game state to prepare for a new game with current settings
             self.game_state.reset()
@@ -242,8 +255,8 @@ class Game:
             return
             
         # Create a burst of particles in the center
-        center_x = SCREEN_WIDTH // 2
-        center_y = SCREEN_HEIGHT // 2
+        center_x = self.screen_width // 2
+        center_y = self.screen_height // 2
         
         # Create a starburst effect
         colors = [
@@ -278,6 +291,31 @@ class Game:
                 lifetime_range=(0.8, 1.2),
                 fade=True
             )
+
+    def toggle_fullscreen(self):
+        """Toggle between fullscreen and windowed mode."""
+        print("Toggling fullscreen mode")
+        
+        # Toggle fullscreen state
+        if pygame.display.get_surface().get_flags() & pygame.FULLSCREEN:
+            # Switch to windowed mode
+            self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+            self.screen_width = SCREEN_WIDTH
+            self.screen_height = SCREEN_HEIGHT
+            print("Switched to windowed mode")
+        else:
+            # Switch to fullscreen mode
+            self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+            screen_info = pygame.display.Info()
+            self.screen_width = screen_info.current_w
+            self.screen_height = screen_info.current_h
+            print(f"Switched to fullscreen mode ({self.screen_width}x{self.screen_height})")
+        
+        # Update star field with new dimensions
+        self.star_field.set_screen_size(self.screen_width, self.screen_height)
+        
+        # Update states with new screen dimensions
+        self.initializeStates()
 
 
 if __name__ == "__main__":

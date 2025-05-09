@@ -17,17 +17,23 @@ from settings.settings_manager import SettingsManager
 class MenuState:
     """The main menu state for the game."""
     
-    def __init__(self, asset_loader, star_field, particle_system):
+    def __init__(self, asset_loader, star_field, particle_system, screen_width=None, screen_height=None):
         """Initialize the menu state.
         
         Args:
             asset_loader: AssetLoader instance for loading assets
             star_field: StarField instance for background stars
             particle_system: ParticleSystem instance for effects
+            screen_width: Width of the screen (defaults to SCREEN_WIDTH from constants)
+            screen_height: Height of the screen (defaults to SCREEN_HEIGHT from constants)
         """
         self.asset_loader = asset_loader
         self.star_field = star_field
         self.particle_system = particle_system
+        
+        # Store screen dimensions
+        self.screen_width = screen_width if screen_width is not None else SCREEN_WIDTH
+        self.screen_height = screen_height if screen_height is not None else SCREEN_HEIGHT
         
         # Initialize settings manager
         self.settings_manager = SettingsManager()
@@ -36,8 +42,8 @@ class MenuState:
         self._apply_star_opacity()
         
         # Set up menus
-        self.main_menu = MainMenu(asset_loader)
-        self.settings_menu = SettingsMenu(asset_loader, self.settings_manager, star_field)
+        self.main_menu = MainMenu(asset_loader, self.screen_width, self.screen_height)
+        self.settings_menu = SettingsMenu(asset_loader, self.settings_manager, star_field, self.screen_width, self.screen_height)
         
         # Track active menu
         self.active_menu = self.main_menu
@@ -99,25 +105,25 @@ class MenuState:
         edge = random.randint(0, 3)  # 0: top, 1: right, 2: bottom, 3: left
         
         if edge == 0:  # Top
-            x = random.randint(0, SCREEN_WIDTH)
+            x = random.randint(0, self.screen_width)
             y = -20
             direction_y = random.uniform(100, 200)
         elif edge == 1:  # Right
-            x = SCREEN_WIDTH + 20
-            y = random.randint(0, SCREEN_HEIGHT)
+            x = self.screen_width + 20
+            y = random.randint(0, self.screen_height)
             direction_y = random.uniform(-50, 50)
         elif edge == 2:  # Bottom
-            x = random.randint(0, SCREEN_WIDTH)
-            y = SCREEN_HEIGHT + 20
+            x = random.randint(0, self.screen_width)
+            y = self.screen_height + 20
             direction_y = random.uniform(-200, -100)
         else:  # Left
             x = -20
-            y = random.randint(0, SCREEN_HEIGHT)
+            y = random.randint(0, self.screen_height)
             direction_y = random.uniform(-50, 50)
             
         # Calculate direction toward center with randomness
-        center_x = SCREEN_WIDTH // 2
-        center_y = SCREEN_HEIGHT // 2
+        center_x = self.screen_width // 2
+        center_y = self.screen_height // 2
         
         direction_x = (center_x - x) * random.uniform(0.1, 0.3)
         
@@ -198,8 +204,8 @@ class MenuState:
     def _add_game_start_effect(self):
         """Add visual effects when starting the game."""
         # Create a dramatic particle burst from the center
-        center_x = SCREEN_WIDTH // 2
-        center_y = SCREEN_HEIGHT // 2
+        center_x = self.screen_width // 2
+        center_y = self.screen_height // 2
         
         # Blue/white color scheme
         colors = [
@@ -337,8 +343,8 @@ class MenuState:
     def _add_menu_transition_effect(self):
         """Add a particle effect when transitioning between menus."""
         # Create a subtle wave of particles
-        width = SCREEN_WIDTH
-        height = SCREEN_HEIGHT
+        width = self.screen_width
+        height = self.screen_height
         
         # Create particles along a horizontal line in the middle
         y = height // 2
@@ -389,13 +395,13 @@ class MenuState:
             if self.previous_menu:
                 # Draw with fading alpha
                 fade_alpha = int(255 * (1 - progress))
-                prev_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+                prev_surface = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
                 self.previous_menu.draw(prev_surface)
                 prev_surface.set_alpha(fade_alpha)
                 surface.blit(prev_surface, (0, 0))
             
             # Draw the new menu fading in
-            new_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            new_surface = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
             self.active_menu.draw(new_surface)
             new_surface.set_alpha(int(255 * progress))
             surface.blit(new_surface, (0, 0))
@@ -405,6 +411,6 @@ class MenuState:
         
         # Draw fade effect during transition out
         if self.transition_out and self.fade_alpha > 0:
-            fade_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            fade_surface = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
             fade_surface.fill((0, 0, 0, self.fade_alpha))
             surface.blit(fade_surface, (0, 0)) 

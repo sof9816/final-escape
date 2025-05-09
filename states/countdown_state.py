@@ -11,17 +11,23 @@ from constants import (
 class CountdownState:
     """Countdown before gameplay starts."""
     
-    def __init__(self, star_field, particle_system, asset_loader=None):
+    def __init__(self, star_field, particle_system, asset_loader=None, screen_width=None, screen_height=None):
         """Initialize the countdown state.
         
         Args:
             star_field: StarField instance for background stars
             particle_system: ParticleSystem instance for effects
             asset_loader: Optional AssetLoader instance for loading fonts
+            screen_width: Width of the screen (defaults to SCREEN_WIDTH from constants)
+            screen_height: Height of the screen (defaults to SCREEN_HEIGHT from constants)
         """
         self.star_field = star_field
         self.particle_system = particle_system
         self.asset_loader = asset_loader
+        
+        # Store screen dimensions
+        self.screen_width = screen_width if screen_width is not None else SCREEN_WIDTH
+        self.screen_height = screen_height if screen_height is not None else SCREEN_HEIGHT
         
         # Setup fonts - try to use custom fonts if asset_loader is provided
         if asset_loader:
@@ -156,12 +162,12 @@ class CountdownState:
             
             countdown_text = str(countdown_num)
             countdown_surface = scaled_font.render(countdown_text, True, COUNTDOWN_COLOR)
-            countdown_rect = countdown_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+            countdown_rect = countdown_surface.get_rect(center=(self.screen_width // 2, self.screen_height // 2))
             surface.blit(countdown_surface, countdown_rect)
         
         # Draw fade overlay for transition
         if self.transition_out and self.fade_alpha > 0:
-            fade_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+            fade_surface = pygame.Surface((self.screen_width, self.screen_height))
             fade_surface.fill((0, 0, 0))
             fade_surface.set_alpha(self.fade_alpha)
             surface.blit(fade_surface, (0, 0)) 
