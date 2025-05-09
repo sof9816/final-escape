@@ -75,9 +75,9 @@ class SettingsManager:
                             
                     # Validate settings
                     self._validate_settings()
-                    self.logger.info(f"Settings loaded from {self.settings_path}")
+                    # self.logger.info(f"Settings loaded from {self.settings_path}")
             else:
-                self.logger.info("No settings file found, using defaults")
+                # self.logger.info("No settings file found, using defaults")
                 # Save defaults to create the file
                 self.save_settings()
         except json.JSONDecodeError:
@@ -88,7 +88,7 @@ class SettingsManager:
                 backup_path = f"{self.settings_path}.backup"
                 try:
                     os.rename(self.settings_path, backup_path)
-                    self.logger.info(f"Corrupted settings file backed up to {backup_path}")
+                    # self.logger.info(f"Corrupted settings file backed up to {backup_path}")
                 except Exception as e:
                     self.logger.error(f"Failed to backup corrupted settings file: {e}")
             self.save_settings()
@@ -109,7 +109,7 @@ class SettingsManager:
             
             with open(self.settings_path, 'w') as f:
                 json.dump(self.settings, f, indent=4)
-            self.logger.info(f"Settings saved to {self.settings_path}")
+            # self.logger.info(f"Settings saved to {self.settings_path}")
             return True
         except Exception as e:
             self.logger.error(f"Error saving settings: {e}")
