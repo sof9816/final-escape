@@ -63,10 +63,17 @@ class Asteroid(pygame.sprite.Sprite):
         res_dir = asset_loader.image_size_dir  # Get the resolution dir (1x, 2x, 3x)
         asteroid_path = os.path.join("assets/images", res_dir, f"a{self.asteroid_type}.png")
         
+        # Ensure we load with proper transparency
         self.image_original = asset_loader.load_image(
             asteroid_path, 
+            convert_alpha=True,
             scale=(self.actual_size, self.actual_size)
         )
+        
+        # Create a fresh surface with proper alpha to hold our asteroid
+        temp_surface = pygame.Surface((self.actual_size, self.actual_size), pygame.SRCALPHA)
+        temp_surface.blit(self.image_original, (0, 0))
+        self.image_original = temp_surface
         
         # Add difficulty-based visual effects
         self._apply_difficulty_effects()
@@ -136,18 +143,22 @@ class Asteroid(pygame.sprite.Sprite):
             "Hell No!!!": (255, 100, 100, 100)   # Red tint
         }
         
+        # Start with the original image 
+        original_img_with_alpha = self.image_original.copy()
+        
+        # Apply tint if needed
         tint = difficulty_tints.get(self.difficulty)
         if tint:
-            # Create a tint surface
-            tint_surface = pygame.Surface(self.image_original.get_size(), pygame.SRCALPHA)
+            # Create a tint surface with proper alpha
+            tint_surface = pygame.Surface(original_img_with_alpha.get_size(), pygame.SRCALPHA)
             tint_surface.fill(tint)
             
             # Apply the tint
-            self.image_original.blit(tint_surface, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
+            original_img_with_alpha.blit(tint_surface, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
             
         # Add glow for higher difficulties
         if self.difficulty in ["You kidding", "Hell No!!!"]:
-            # Create larger glow surface
+            # Create larger glow surface with proper alpha
             glow_size = int(self.actual_size * 1.2)
             glow_surface = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
             
@@ -159,30 +170,37 @@ class Asteroid(pygame.sprite.Sprite):
                 glow_color = (255, 150, 50, glow_alpha)  # Orange glow
             else:
                 glow_color = (255, 200, 50, glow_alpha)  # Yellow glow
-                
-            # Draw the glow
-            pygame.draw.circle(
-                glow_surface,
-                glow_color,
-                (glow_size // 2, glow_size // 2),
-                glow_size // 2
+            
+            # Get the mask from the original image to create a properly shaped glow
+            mask = pygame.mask.from_surface(original_img_with_alpha)
+            mask_surface = mask.to_surface(setcolor=glow_color, unsetcolor=(0, 0, 0, 0))
+            
+            # Scale the mask to create the glow effect (slightly larger)
+            scaled_mask = pygame.transform.scale(
+                mask_surface,
+                (int(mask_surface.get_width() * 1.2), int(mask_surface.get_height() * 1.2))
             )
             
-            # Create a larger image to accommodate the glow
-            temp_img = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+            # Create final image with glow
+            final_size = max(scaled_mask.get_width(), scaled_mask.get_height())
+            final_img = pygame.Surface((final_size, final_size), pygame.SRCALPHA)
             
-            # Center the original image on the temp surface
-            orig_rect = self.image_original.get_rect(center=(glow_size // 2, glow_size // 2))
+            # Center the scaled mask (glow)
+            glow_rect = scaled_mask.get_rect(center=(final_size // 2, final_size // 2))
+            final_img.blit(scaled_mask, glow_rect)
             
-            # Draw glow first, then original image
-            temp_img.blit(glow_surface, (0, 0))
-            temp_img.blit(self.image_original, orig_rect)
+            # Center the original image on top of the glow
+            orig_rect = original_img_with_alpha.get_rect(center=(final_size // 2, final_size // 2))
+            final_img.blit(original_img_with_alpha, orig_rect)
             
-            # Update image_original with the new glowing version
-            self.image_original = temp_img
-            
-            # Update radius for collision to remain accurate to the asteroid, not the glow
-            self.radius = self.actual_size // 2
+            # Update the original image
+            self.image_original = final_img
+        else:
+            # If no glow, just use the tinted image
+            self.image_original = original_img_with_alpha
+        
+        # Ensure collision radius remains based on the actual asteroid size, not including glow
+        self.radius = self.actual_size // 2
     
     def update(self, dt, joystick=None):
         """Update the asteroid position and effects.
@@ -197,8 +215,16 @@ class Asteroid(pygame.sprite.Sprite):
         
         # Update rotation
         self.rotation += self.rotation_speed * dt
-        self.image = pygame.transform.rotate(self.image_original, self.rotation)
-        self.rect = self.image.get_rect(center=self.position)
+        
+        # Create rotated image with proper alpha transparency
+        rotated_img = pygame.transform.rotozoom(self.image_original, self.rotation, 1.0)
+        
+        # Keep track of the old center
+        old_center = self.rect.center
+        
+        # Update image and rect
+        self.image = rotated_img
+        self.rect = self.image.get_rect(center=old_center)
         
         # Remove if off screen with buffer
         buffer = self.actual_size * 2
