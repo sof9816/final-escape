@@ -379,12 +379,18 @@ class AssetLoader:
             pass # Asteroid images are loaded by the Asteroid class itself using asset_loader.load_image
 
         # Load power-up images
+        print("\nLoading power-up images:")
+        print(f"POWERUP_TYPES: {POWERUP_TYPES}")
         for powerup_id, details in POWERUP_TYPES.items():
+            print(f"Loading powerup {powerup_id}, details: {details}")
             powerup_relative_path = os.path.join("power-ups", details["image_file"])
-            self.assets["powerup_imgs"][powerup_id] = self.load_image(
+            print(f"Path: {powerup_relative_path}")
+            loaded_image = self.load_image(
                 powerup_relative_path, 
                 scale=(POWERUP_SIZE, POWERUP_SIZE)
             )
+            print(f"Loaded image: {loaded_image}, size: {loaded_image.get_size() if loaded_image else 'None'}")
+            self.assets["powerup_imgs"][powerup_id] = loaded_image
             
         # Load fonts
         try:

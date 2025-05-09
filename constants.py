@@ -222,7 +222,7 @@ DIFFICULTY_SIZE_RESTRICTIONS = {
 
 # Power-up Settings
 POWERUP_SIZE = 40  # Default size for power-up icons
-POWERUP_SPAWN_CHANCE = 0.1  # 10% chance to spawn a power-up instead of an asteroid (can be adjusted)
+POWERUP_SPAWN_CHANCE = 0.25  # 25% chance to spawn (increased from 5% to improve chances)
 POWERUP_BOOM_ID = "boom"
 POWERUP_TYPES = {
     POWERUP_BOOM_ID: {

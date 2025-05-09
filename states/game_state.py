@@ -24,7 +24,7 @@ from constants import (
 )
 from entities.player import Player
 from entities.asteroid import Asteroid
-from entities.powerup import PowerUp # Import PowerUp class
+from entities.powerup import PowerUp, PowerUpGroup # Import the new PowerUpGroup
 from settings.settings_manager import SettingsManager
 
 class GameState:
@@ -61,7 +61,7 @@ class GameState:
         # Create sprite groups
         self.all_sprites = pygame.sprite.Group()
         self.asteroids = pygame.sprite.Group()
-        self.powerups = pygame.sprite.Group() # New group for power-ups
+        self.powerups = PowerUpGroup() # Use our custom PowerUpGroup instead of pygame.sprite.Group
         
         # Create player
         # Ensure assets are loaded before creating the player if not already
@@ -99,6 +99,10 @@ class GameState:
         self.boom_flash_timer = 0.0
         self.boom_center = None
         self.scheduled_sounds = [] # List of (sound_asset, delay_timer)
+        
+        # Add timer for minimum time between powerup spawns
+        self.last_powerup_spawn_time = 0  # Time tracking for powerup spawn cooldown
+        self.powerup_spawn_cooldown = 10.0  # Reduced from 45 seconds to 10 seconds for more frequent spawns
             
     def reset(self):
         """Reset the game state for a new game."""
@@ -145,6 +149,9 @@ class GameState:
         self.transition_out = False
         self.fade_alpha = 0
         self.transition_timer = 0
+        
+        # Reset powerup spawning
+        self.last_powerup_spawn_time = 0  # Reset powerup spawn timer
         
         # Always show difficulty at game start
         self.show_difficulty_message = True
@@ -330,6 +337,9 @@ class GameState:
         # Update all sprites
         self.all_sprites.update(dt, self.joystick)
         
+        # Update last powerup spawn time counter
+        self.last_powerup_spawn_time += dt
+        
         # Asteroid spawning
         self.asteroid_spawn_timer += dt
         if self.asteroid_spawn_timer >= self.next_spawn_interval:
@@ -338,44 +348,22 @@ class GameState:
             current_difficulty = self.settings_manager.get_difficulty()
 
             # Decide whether to spawn an asteroid or a power-up
-            if random.random() < POWERUP_SPAWN_CHANCE and POWERUP_TYPES:
-                # Spawn a power-up
-                # For now, let's assume we only have the 'boom' power-up or pick one if multiple exist
-                # TODO: Implement a weighted choice if multiple power-ups with different rarities exist
-                powerup_type_id_to_spawn = POWERUP_BOOM_ID # Default to boom for now
-                
-                if powerup_type_id_to_spawn in self.asset_loader.assets["powerup_imgs"]:
-                    powerup_image = self.asset_loader.assets["powerup_imgs"][powerup_type_id_to_spawn]
-                    
-                    # Determine spawn position (similar to asteroids, from outside screen edges)
-                    spawn_side = random.randint(0, 3) # 0: top, 1: right, 2: bottom, 3: left
-                    powerup_rect_temp = powerup_image.get_rect() # Get rect for size
-                    
-                    if spawn_side == 0: # Top
-                        x = random.randint(0, self.screen_width)
-                        y = -powerup_rect_temp.height
-                    elif spawn_side == 1: # Right
-                        x = self.screen_width + powerup_rect_temp.width
-                        y = random.randint(0, self.screen_height)
-                    elif spawn_side == 2: # Bottom
-                        x = random.randint(0, self.screen_width)
-                        y = self.screen_height + powerup_rect_temp.height
-                    else: # Left
-                        x = -powerup_rect_temp.width
-                        y = random.randint(0, self.screen_height)
-
-                    new_powerup = PowerUp(
-                        initial_position=(x, y),
-                        powerup_type_id=powerup_type_id_to_spawn,
-                        powerup_image_surface=powerup_image,
-                        screen_width=self.screen_width,
-                        screen_height=self.screen_height
-                    )
-                    self.all_sprites.add(new_powerup)
-                    self.powerups.add(new_powerup)
-                else:
-                    print(f"Warning: Image for powerup type '{powerup_type_id_to_spawn}' not loaded.")
-
+            spawn_powerup_roll = random.random()
+            
+            # Only allow powerups to spawn if the cooldown has elapsed
+            can_spawn_powerup = self.last_powerup_spawn_time >= self.powerup_spawn_cooldown
+            
+            # Add debug prints to track powerup spawn attempts
+            print(f"Powerup cooldown: {self.last_powerup_spawn_time:.1f}/{self.powerup_spawn_cooldown} seconds")
+            print(f"Spawn roll: {spawn_powerup_roll:.3f}, threshold: {POWERUP_SPAWN_CHANCE}")
+            print(f"Can spawn powerup: {can_spawn_powerup}")
+            
+            if can_spawn_powerup and spawn_powerup_roll < POWERUP_SPAWN_CHANCE:
+                print("SPAWNING POWERUP!")
+                # Use our spawn_powerup method
+                self.spawn_powerup()
+                # Reset the cooldown timer
+                self.last_powerup_spawn_time = 0
             else:
                 # Spawn an asteroid
                 type_id, size_category = self._choose_asteroid_type()
@@ -390,7 +378,7 @@ class GameState:
                 )
                 self.all_sprites.add(new_asteroid)
                 self.asteroids.add(new_asteroid)
-            
+        
         # Collision detection for asteroids
         asteroid_hits = pygame.sprite.spritecollide(self.player, self.asteroids, False, pygame.sprite.collide_circle)
         for asteroid in asteroid_hits:
@@ -402,15 +390,9 @@ class GameState:
                         self.transition_timer = 0
                         break
         
-        # Collision detection for power-ups
-        powerup_hits = pygame.sprite.spritecollide(self.player, self.powerups, True, pygame.sprite.collide_circle)
-        # The `True` argument will remove the power-up from all groups it belongs to upon collision
-        for powerup in powerup_hits:
-            if self.asset_loader.assets["sounds"]["powerup_collect"]:
-                self.asset_loader.assets["sounds"]["powerup_collect"].play()
-            powerup.activate(self) # Pass GameState instance for context if needed by activate method
-            # The powerup.activate method should call self.kill() or it's already removed by spritecollide
-
+        # Use our new check_powerup_collisions method
+        self.check_powerup_collisions()
+        
         # Update score based on time survived
         self.score += dt * 10
         
@@ -437,8 +419,28 @@ class GameState:
         # Draw particles
         self.particle_system.draw(surface)
         
-        # Draw all sprites
-        self.all_sprites.draw(surface)
+        # Check for powerups that need to emit particles
+        for powerup in self.powerups:
+            if hasattr(powerup, 'emit_particles') and powerup.emit_particles:
+                powerup.emit_particles = False  # Reset the flag
+                self.particle_system.emit_particles(
+                    powerup.position.x, powerup.position.y,
+                    powerup.particle_colors,
+                    count=5,
+                    velocity_range=((-40, 40), (-40, 40)),
+                    size_range=(1, 2),
+                    lifetime_range=(0.3, 0.6),
+                    fade=True
+                )
+        
+        # Draw all sprites except powerups
+        sprites_without_powerups = [sprite for sprite in self.all_sprites.sprites() 
+                                  if sprite not in self.powerups.sprites()]
+        for sprite in sprites_without_powerups:
+            surface.blit(sprite.image, sprite.rect)
+            
+        # Draw powerups with custom drawing
+        self.powerups.draw(surface)
         
         # Draw score
         score_text = f"Score: {int(self.score)}"
@@ -579,4 +581,116 @@ class GameState:
         health_text = f"Health: {int(self.player.health)}/{PLAYER_MAX_HEALTH}"
         health_surface = self.score_font.render(health_text, True, HEALTH_BAR_BORDER_COLOR)
         health_rect = health_surface.get_rect(midleft=(x + 10, y + HEALTH_BAR_HEIGHT // 2))
-        surface.blit(health_surface, health_rect) 
+        surface.blit(health_surface, health_rect)
+
+    def spawn_powerup(self):
+        """Attempt to spawn a power-up in the game."""
+        # Choose a random power-up type (currently only "boom", can add more later)
+        powerup_type_id = POWERUP_BOOM_ID  # Default to boom for now
+        print(f"Attempting to spawn powerup type: {powerup_type_id}")
+        
+        # Compute a random position just outside the screen to drift in
+        edge = random.choice(["top", "left", "right"])
+        if edge == "top":
+            x = random.randint(50, self.screen_width - 50)
+            y = -50
+        elif edge == "left":
+            x = -50
+            y = random.randint(50, self.screen_height // 2)
+        else:  # right
+            x = self.screen_width + 50
+            y = random.randint(50, self.screen_height // 2)
+        
+        print(f"Powerup spawn position: ({x}, {y})")
+        
+        # Create and add the power-up to game sprite groups
+        powerup_img = self.asset_loader.assets["powerup_imgs"][powerup_type_id]
+        
+        print(f"Powerup image: {powerup_img}, size: {powerup_img.get_size() if powerup_img else 'None'}")
+        
+        if powerup_img is None:
+            print(f"ERROR: Could not load powerup image for {powerup_type_id}")
+            return
+        
+        new_powerup = PowerUp(
+            (x, y), 
+            powerup_type_id, 
+            powerup_img,
+            self.screen_width,
+            self.screen_height
+        )
+        
+        print(f"Created powerup: {new_powerup}, position: {new_powerup.position}")
+        
+        self.all_sprites.add(new_powerup)
+        self.powerups.add(new_powerup)
+        
+        print(f"Added powerup to groups. Powerups count: {len(self.powerups)}")
+        
+        # Create spawn particles for the powerup
+        self.create_powerup_particles(new_powerup.position, 'spawn')
+
+    def check_powerup_collisions(self):
+        """Check if the player has collected any power-ups and activate them."""
+        # Check for collisions with power-ups
+        powerup_hits = pygame.sprite.spritecollide(self.player, self.powerups, True, pygame.sprite.collide_circle)
+        
+        # Process each collected power-up
+        for powerup in powerup_hits:
+            # Create collection particles before activating (which removes the powerup)
+            self.create_powerup_particles(powerup.position, 'collect')
+            
+            # Activate the power-up effect (each power-up knows what to do)
+            powerup.activate(self)
+            
+            # Play collection sound
+            if self.asset_loader.assets["sounds"]["powerup_collect"]:
+                self.asset_loader.assets["sounds"]["powerup_collect"].play()
+
+    def create_powerup_particles(self, position, effect_type):
+        """Create particles for powerup spawn or collection effects.
+        
+        Args:
+            position (Vector2): Position to create particles
+            effect_type (str): Either 'spawn' or 'collect'
+        """
+        if effect_type == 'spawn':
+            # Spawn effect: Gentle outward particles with blue/white colors
+            colors = [
+                (100, 200, 255),  # Light blue
+                (150, 220, 255),  # Lighter blue
+                (200, 240, 255),  # Almost white blue
+                (255, 255, 255)   # White
+            ]
+            
+            # Emit fewer particles for spawn (subtle effect)
+            self.particle_system.emit_particles(
+                position.x, position.y,
+                colors,
+                count=15,
+                velocity_range=((-60, 60), (-60, 60)),
+                size_range=(1, 3),
+                lifetime_range=(0.6, 1.2),
+                fade=True
+            )
+        
+        elif effect_type == 'collect':
+            # Collection effect: More energetic particles with bright white/yellow colors
+            colors = [
+                (255, 255, 200),  # Very light yellow
+                (255, 255, 150),  # Light yellow
+                (255, 255, 100),  # Yellow
+                (255, 255, 50),   # Bright yellow
+                (255, 255, 255)   # White
+            ]
+            
+            # Emit more particles for collection (prominent effect)
+            self.particle_system.emit_particles(
+                position.x, position.y,
+                colors,
+                count=30,
+                velocity_range=((-100, 100), (-100, 100)),
+                size_range=(1, 4),
+                lifetime_range=(0.5, 1.0),
+                fade=True
+            ) 
