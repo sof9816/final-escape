@@ -155,7 +155,7 @@ class Menu:
         self._load_sounds()
         
         # Help text
-        self.show_help = True
+        self.show_help = False  # Disabled by default
         self.help_font = pygame.font.Font(None, 16)
         self.help_text = [
             "↑/↓: Navigate",
@@ -518,13 +518,6 @@ class Menu:
                 
                 # Draw the actual text
                 surface.blit(text_surface, text_rect)
-                
-                # If there's a shortcut hint, draw it
-                if item.shortcut:
-                    shortcut_surface = self.help_font.render(f"[{item.shortcut}]", True, color)
-                    shortcut_rect = shortcut_surface.get_rect(midleft=(item.rect.right + 20, item_y))
-                    shortcut_surface.set_alpha(actual_alpha)
-                    surface.blit(shortcut_surface, shortcut_rect)
         
         # Draw help text if enabled
         if self.show_help and self.help_surfaces and self.appear_progress >= 0.8:

@@ -82,22 +82,22 @@ class SettingsMenu(Menu):
         sound_value = 'ON' if sound_enabled else 'OFF'
         sound_description = "Toggle game sound effects and music"
         self.setting_items["sound"] = SettingItem("Sound", sound_value, sound_description)
-        self.sound_item = self.add_item(self.setting_items["sound"].get_display_text(), self._toggle_sound, shortcut="S")
+        self.sound_item = self.add_item(self.setting_items["sound"].get_display_text(), self._toggle_sound)
         
         # Star opacity control
         opacity = self.settings_manager.get_star_opacity()
         opacity_description = "Adjust the visibility of background stars (0-100%)"
         self.setting_items["opacity"] = SettingItem("Star Opacity", f"{opacity}%", opacity_description)
-        self.opacity_item = self.add_item(self.setting_items["opacity"].get_display_text(), None, shortcut="←→")
+        self.opacity_item = self.add_item(self.setting_items["opacity"].get_display_text(), None)
         
         # Difficulty selection
         difficulty = self.settings_manager.get_difficulty()
         difficulty_description = "Choose how challenging the asteroid field will be"
         self.setting_items["difficulty"] = SettingItem("Difficulty", difficulty, difficulty_description)
-        self.difficulty_item = self.add_item(self.setting_items["difficulty"].get_display_text(), None, shortcut="←→")
+        self.difficulty_item = self.add_item(self.setting_items["difficulty"].get_display_text(), None)
         
         # Back to main menu
-        self.add_item("Back to Main Menu", self._return_to_main_menu, shortcut="ESC")
+        self.add_item("Back to Main Menu", self._return_to_main_menu)
     
     def _toggle_sound(self):
         """Toggle sound on/off."""
@@ -404,13 +404,6 @@ class SettingsMenu(Menu):
                 # Draw the actual text
                 surface.blit(text_surface, text_rect)
                 
-                # If there's a shortcut hint, draw it
-                if item.shortcut:
-                    shortcut_surface = self.help_font.render(f"[{item.shortcut}]", True, color)
-                    shortcut_rect = shortcut_surface.get_rect(midleft=(item.rect.right + 20, item_y))
-                    shortcut_surface.set_alpha(actual_alpha)
-                    surface.blit(shortcut_surface, shortcut_rect)
-                
                 # Check which special setting item this corresponds to
                 setting_item = None
                 for key, si in self.setting_items.items():
@@ -471,16 +464,6 @@ class SettingsMenu(Menu):
                     # Draw arrows
                     arrow_rect = arrow_surface.get_rect(center=(self.screen_width // 2, item_y))
                     surface.blit(arrow_surface, arrow_rect)
-                    
-                    # Draw instruction hint with improved positioning
-                    hint_text = "< Use arrow keys >"
-                    hint_surface = self.description_font.render(hint_text, True, (150, 150, 150))
-                    hint_rect = hint_surface.get_rect(center=(self.screen_width // 2, item_y + 45))
-                    
-                    # Apply opacity
-                    hint_with_alpha = hint_surface.copy()
-                    hint_with_alpha.set_alpha(alpha)
-                    surface.blit(hint_with_alpha, hint_rect)
         
         # Draw help text if enabled
         if self.show_help and self.help_surfaces and self.appear_progress >= 0.8:

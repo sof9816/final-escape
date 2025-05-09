@@ -61,10 +61,10 @@ class MainMenu(Menu):
                 
             return STATE_SETTINGS
         
-        # Add menu items with keyboard shortcuts
-        self.add_item("Free Escape", start_game, shortcut="Enter")
-        self.add_item("Story", None, enabled=False, shortcut="Locked")  # Disabled option
-        self.add_item("Settings", open_settings, shortcut="S")
+        # Add menu items without keyboard shortcuts
+        self.add_item("Free Escape", start_game)
+        self.add_item("Story", None, enabled=False)  # Disabled option
+        self.add_item("Settings", open_settings)
         
         # Activate the menu by default
         self.activate()
