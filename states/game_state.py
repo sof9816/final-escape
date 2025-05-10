@@ -14,8 +14,9 @@ from constants import (
     DIFFICULTY_SPAWN_RATE_MULTIPLIERS, DIFFICULTY_ASTEROID_VARIETY,
     DIFFICULTY_SIZE_RESTRICTIONS, INSTRUCTION_FONT_SIZE,
     # Power-up related constants
-    POWERUP_SPAWN_CHANCE, POWERUP_TYPES, POWERUP_BOOM_ID, POWERUP_HEALTH_ID,
+    POWERUP_TYPES, POWERUP_BOOM_ID, POWERUP_HEALTH_ID,
     SOUND_POWERUP_COLLECT,
+    POWERUP_SPAWN_INTERVAL_MIN, POWERUP_SPAWN_INTERVAL_MAX, MAX_ACTIVE_POWERUPS,
     # Boom effect constants
     POWERUP_BOOM_EFFECT_RADIUS_FACTOR, POWERUP_BOOM_FLASH_DURATION, POWERUP_BOOM_FLASH_COLOR, 
     SOUND_EXPLOSION_MAIN, # Already imported by PowerUp, but good to have explicitly if GameState uses it directly
@@ -50,9 +51,6 @@ class GameState:
         
         # Load settings
         self.settings_manager = SettingsManager()
-        
-        # Instead of storing difficulty as an instance variable at init,
-        # we'll always get the current value when needed to ensure it's up-to-date
         
         # Setup fonts
         self.score_font = pygame.font.Font(None, SCORE_FONT_SIZE)
@@ -100,9 +98,9 @@ class GameState:
         self.boom_center = None
         self.scheduled_sounds = [] # List of (sound_asset, delay_timer)
         
-        # Add timer for minimum time between powerup spawns
-        self.last_powerup_spawn_time = 0  # Time tracking for powerup spawn cooldown
-        self.powerup_spawn_cooldown = 10.0  # Reduced from 45 seconds to 10 seconds for more frequent spawns
+        # Independent power-up spawn timer
+        self.powerup_spawn_timer = 0.0
+        self.next_powerup_spawn_interval = self._get_next_powerup_spawn_interval()
             
     def reset(self):
         """Reset the game state for a new game."""
@@ -150,8 +148,9 @@ class GameState:
         self.fade_alpha = 0
         self.transition_timer = 0
         
-        # Reset powerup spawning
-        self.last_powerup_spawn_time = 0  # Reset powerup spawn timer
+        # Reset independent powerup spawning
+        self.powerup_spawn_timer = 0.0
+        self.next_powerup_spawn_interval = self._get_next_powerup_spawn_interval()
         
         # Always show difficulty at game start
         self.show_difficulty_message = True
@@ -216,6 +215,11 @@ class GameState:
         spawn_rate_multiplier = DIFFICULTY_SPAWN_RATE_MULTIPLIERS.get(current_difficulty, 1.0)
         base_interval = ASTEROID_SPAWN_RATE / spawn_rate_multiplier
         return random.uniform(base_interval * 0.8, base_interval * 1.2)
+    
+    def _get_next_powerup_spawn_interval(self):
+        """Calculate the next interval for an independent power-up spawn attempt."""
+        # Return to normal spawn intervals
+        return random.uniform(POWERUP_SPAWN_INTERVAL_MIN, POWERUP_SPAWN_INTERVAL_MAX)
     
     def _choose_asteroid_type(self):
         """Choose an asteroid type based on difficulty.
@@ -337,9 +341,6 @@ class GameState:
         # Update all sprites
         self.all_sprites.update(dt, self.joystick)
         
-        # Update last powerup spawn time counter
-        self.last_powerup_spawn_time += dt
-        
         # Asteroid spawning
         self.asteroid_spawn_timer += dt
         if self.asteroid_spawn_timer >= self.next_spawn_interval:
@@ -347,38 +348,30 @@ class GameState:
             self.next_spawn_interval = self._get_spawn_interval()
             current_difficulty = self.settings_manager.get_difficulty()
 
-            # Decide whether to spawn an asteroid or a power-up
-            spawn_powerup_roll = random.random()
-            
-            # Only allow powerups to spawn if the cooldown has elapsed
-            can_spawn_powerup = self.last_powerup_spawn_time >= self.powerup_spawn_cooldown
-            
-            # Add debug prints to track powerup spawn attempts
-            print(f"Powerup cooldown: {self.last_powerup_spawn_time:.1f}/{self.powerup_spawn_cooldown} seconds")
-            print(f"Spawn roll: {spawn_powerup_roll:.3f}, threshold: {POWERUP_SPAWN_CHANCE}")
-            print(f"Can spawn powerup: {can_spawn_powerup}")
-            
-            if can_spawn_powerup and spawn_powerup_roll < POWERUP_SPAWN_CHANCE:
-                print("SPAWNING POWERUP!")
-                # Use our spawn_powerup method
-                self.spawn_powerup()
-                # Reset the cooldown timer
-                self.last_powerup_spawn_time = 0
+            # Spawn an asteroid (power-up spawning is now separate)
+            type_id, size_category = self._choose_asteroid_type()
+            new_asteroid = Asteroid(
+                self.particle_system, 
+                self.asset_loader,
+                type_id=type_id,
+                size_category=size_category,
+                difficulty=current_difficulty,
+                screen_width=self.screen_width,
+                screen_height=self.screen_height
+            )
+            self.all_sprites.add(new_asteroid)
+            self.asteroids.add(new_asteroid)
+
+        # Independent Power-up spawning
+        self.powerup_spawn_timer += dt
+        if self.powerup_spawn_timer >= self.next_powerup_spawn_interval:
+            self.powerup_spawn_timer = 0  # Reset timer
+            self.next_powerup_spawn_interval = self._get_next_powerup_spawn_interval()
+            if len(self.powerups) < MAX_ACTIVE_POWERUPS:
+                self.spawn_powerup() 
             else:
-                # Spawn an asteroid
-                type_id, size_category = self._choose_asteroid_type()
-                new_asteroid = Asteroid(
-                    self.particle_system, 
-                    self.asset_loader,
-                    type_id=type_id,
-                    size_category=size_category,
-                    difficulty=current_difficulty,
-                    screen_width=self.screen_width,
-                    screen_height=self.screen_height
-                )
-                self.all_sprites.add(new_asteroid)
-                self.asteroids.add(new_asteroid)
-        
+                print(f"Max active powerups ({MAX_ACTIVE_POWERUPS}) reached. Skipping spawn.")
+
         # Collision detection for asteroids
         asteroid_hits = pygame.sprite.spritecollide(self.player, self.asteroids, False, pygame.sprite.collide_circle)
         for asteroid in asteroid_hits:
@@ -585,18 +578,24 @@ class GameState:
 
     def spawn_powerup(self):
         """Attempt to spawn a power-up in the game."""
-        # Weighted random selection based on rarity, with extra weight for 25% health
-        powerup_pool = []
-        rarity_weights = {"common": 10, "uncommon": 4, "rare": 1}
-        for powerup_id, details in POWERUP_TYPES.items():
-            weight = rarity_weights.get(details.get("rarity", "common"), 1)
-            # Make 25% health power-up more common
-            if powerup_id == f"{POWERUP_HEALTH_ID}_25":
-                weight *= 3  # Triple the weight for 25% health
-            powerup_pool.extend([powerup_id] * weight)
-        powerup_type_id = random.choice(powerup_pool)
+        # Use direct probability distribution for more controlled spawning
+        power_type_roll = random.random()
+        
+        # 25% chance of BOOM power-up
+        if power_type_roll < 0.25:
+            powerup_type_id = POWERUP_BOOM_ID
+        else:
+            # 75% chance of health power-up, distributed among different amounts
+            health_roll = random.random()
+            
+            if health_roll < 0.6:  # 60% of health (or 45% of all) is 25% health
+                powerup_type_id = f"{POWERUP_HEALTH_ID}_25"
+            elif health_roll < 0.9:  # 30% of health (or 22.5% of all) is 50% health
+                powerup_type_id = f"{POWERUP_HEALTH_ID}_50"
+            else:  # 10% of health (or 7.5% of all) is 100% health
+                powerup_type_id = f"{POWERUP_HEALTH_ID}_100"
+        
         details = POWERUP_TYPES[powerup_type_id]
-        print(f"Attempting to spawn powerup type: {powerup_type_id}")
         # Compute a random position just outside the screen to drift in
         edge = random.choice(["top", "left", "right"])
         if edge == "top":
@@ -608,14 +607,12 @@ class GameState:
         else:  # right
             x = self.screen_width + 50
             y = random.randint(50, self.screen_height // 2)
-        print(f"Powerup spawn position: ({x}, {y})")
-        # Create and add the power-up to game sprite groups
-        powerup_img = self.asset_loader.assets["powerup_imgs"][powerup_type_id]
-        print(f"Powerup image: {powerup_img}, size: {powerup_img.get_size() if powerup_img else 'None'}")
+
+        powerup_img = self.asset_loader.assets["powerup_imgs"].get(powerup_type_id)
         if powerup_img is None:
-            print(f"ERROR: Could not load powerup image for {powerup_type_id}")
+            print(f"[ERROR] Image for {powerup_type_id} not found in powerup_imgs")
             return
-        # Pass amount for health power-ups
+
         amount = details.get("amount") if powerup_type_id.startswith(POWERUP_HEALTH_ID) else None
         new_powerup = PowerUp(
             (x, y),
@@ -625,10 +622,8 @@ class GameState:
             self.screen_height,
             amount=amount
         )
-        print(f"Created powerup: {new_powerup}, position: {new_powerup.position}")
         self.all_sprites.add(new_powerup)
         self.powerups.add(new_powerup)
-        print(f"Added powerup to groups. Powerups count: {len(self.powerups)}")
         # Create spawn particles for the powerup
         self.create_powerup_particles(new_powerup.position, 'spawn')
 

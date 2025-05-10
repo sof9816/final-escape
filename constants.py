@@ -246,6 +246,12 @@ POWERUP_TYPES = {
         "amount": 100
     }
 }
+
+# New independent power-up spawning settings
+POWERUP_SPAWN_INTERVAL_MIN = 2.0  # Decreased from 4.0 to 2.0 for even more frequent spawns
+POWERUP_SPAWN_INTERVAL_MAX = 4.0  # Decreased from 8.0 to 4.0 for even more frequent spawns
+MAX_ACTIVE_POWERUPS = 5           # Increased from 3 to 5 to allow more power-ups on screen at once
+
 POWERUP_BOOM_EFFECT_RADIUS_FACTOR = 0.7 # Increased from 0.5 to 0.7 for larger explosion radius
 POWERUP_BOOM_FLASH_COLOR = (255, 255, 255) # White
 POWERUP_BOOM_FLASH_DURATION = 0.5 # seconds

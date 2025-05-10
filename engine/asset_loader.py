@@ -9,7 +9,7 @@ from constants import (
     SCREEN_WIDTH, SCREEN_HEIGHT, PLAYER_SIZE, ASTEROID_SIZES,
     SCORE_FONT_SIZE, GAME_OVER_FONT_SIZE, TITLE_FONT_SIZE, 
     INSTRUCTION_FONT_SIZE, COUNTDOWN_FONT_SIZE,
-    POWERUP_TYPES, POWERUP_SIZE,
+    POWERUP_TYPES, POWERUP_SIZE, POWERUP_HEALTH_ID,
     SOUND_POWERUP_COLLECT, SOUND_EXPLOSION_MAIN, SOUND_ASTEROID_EXPLODE
 )
 
@@ -395,23 +395,40 @@ class AssetLoader:
             # AssetLoader will still cache them if Asteroid class calls load_image.
             pass # Asteroid images are loaded by the Asteroid class itself using asset_loader.load_image
 
-        # Load power-up images
-        print("\nLoading power-up images:")
-        print(f"POWERUP_TYPES: {POWERUP_TYPES}")
+        # Ensure the main assets dictionary has 'powerup_imgs' before detailed loading
+        if "powerup_imgs" not in self.assets:
+            self.assets["powerup_imgs"] = {}
+
+        # This temporary dictionary will hold the scaled base images (e.g., "health.png" scaled)
+        powerup_imgs_scaled_temp = {}
         for powerup_id, details in POWERUP_TYPES.items():
-            print(f"Loading powerup {powerup_id}, details: {details}")
-            powerup_relative_path = os.path.join("power-ups", details["image_file"])
-            print(f"Path: {powerup_relative_path}")
-            loaded_image = self.load_image(
-                powerup_relative_path, 
-                scale=(POWERUP_SIZE, POWERUP_SIZE)
-            )
-            # Overlay health amount if this is a health power-up
-            if powerup_id.startswith("health") and "amount" in details:
-                loaded_image = self.create_health_powerup_image(loaded_image, details["amount"])
-            print(f"Loaded image: {loaded_image}, size: {loaded_image.get_size() if loaded_image else 'None'}")
-            self.assets["powerup_imgs"][powerup_id] = loaded_image
-            
+            image_file = details["image_file"] # e.g., "health.png", "boom.png"
+            if image_file not in powerup_imgs_scaled_temp: # Only load and scale each base image once
+                powerup_relative_path = os.path.join("power-ups", image_file)
+                scaled_img = self.load_image(
+                    powerup_relative_path, 
+                    scale=(POWERUP_SIZE, POWERUP_SIZE)
+                )
+                powerup_imgs_scaled_temp[image_file] = scaled_img
+
+        # Now, populate self.assets['powerup_imgs'] using the pre-scaled images and applying overlays if needed
+        for powerup_id, details in POWERUP_TYPES.items():
+            image_file = details["image_file"]
+            base_scaled_img = powerup_imgs_scaled_temp.get(image_file)
+
+            if base_scaled_img is None:
+                print(f"[ERROR] Failed to load power-up image '{image_file}' for '{powerup_id}'")
+                self.assets["powerup_imgs"][powerup_id] = None
+                continue
+
+            if powerup_id.startswith(POWERUP_HEALTH_ID) and "amount" in details:
+                # Create health overlay using the pre-scaled base image
+                amount_img = self.create_health_powerup_image(base_scaled_img, details["amount"])
+                self.assets["powerup_imgs"][powerup_id] = amount_img
+            else:
+                # For non-health (like boom), use the pre-scaled image directly
+                self.assets["powerup_imgs"][powerup_id] = base_scaled_img
+        
         # Load fonts
         try:
             # Check for custom fonts

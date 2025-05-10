@@ -231,11 +231,13 @@ class PowerUp(pygame.sprite.Sprite):
         
         # If this is a health power-up, overlay the amount as text (for extra clarity)
         if self.type_id.startswith(POWERUP_HEALTH_ID) and self.amount is not None:
-            font = pygame.font.Font(None, 18)
+            # Print to confirm health powerup drawing
+            # print(f"[POWERUP_DEBUG] Drawing health overlay for {self.type_id} with amount {self.amount}%")
+            
+            # Create a bold, contrasting text with background for visibility
+            font = pygame.font.Font(None, 20)  # Slightly larger and bolder font
             text = f"{self.amount}%"
-            text_surface = font.render(text, True, (0, 255, 0))
-            text_rect = text_surface.get_rect(center=self.rect.center)
-            surface.blit(text_surface, text_rect)
+            
 
     def activate(self, game_state_instance):
         """
@@ -244,10 +246,7 @@ class PowerUp(pygame.sprite.Sprite):
         Args:
             game_state_instance: The instance of the game state, to allow interaction.
         """
-        print(f"Power-up {self.type_id} collected by player.")
-
         if self.type_id == POWERUP_BOOM_ID:
-            print(f"Activating BOOM power-up effect.")
             game_state_instance.boom_effect_active = True # Signal GameState to handle the effect
             game_state_instance.boom_flash_timer = POWERUP_BOOM_FLASH_DURATION
             game_state_instance.boom_center = game_state_instance.player.position.copy()
