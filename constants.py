@@ -154,11 +154,11 @@ DIFFICULTY_LEVELS = [
 
 # Difficulty spawn rate multipliers (higher = more asteroids)
 DIFFICULTY_SPAWN_RATE_MULTIPLIERS = {
-    "Empty Space": 0.5,        
-    "Normal Space": 1.0,       
-    "We did not agree on that": 1.5,
-    "You kidding": 2.0,
-    "Hell No!!!": 3.0         
+    "Empty Space": 1.0,        
+    "Normal Space": 2.0,       
+    "We did not agree on that": 4.0,
+    "You kidding": 8.0,
+    "Hell No!!!": 16.0         
 }
 
 # Difficulty asteroid variety impact
@@ -174,12 +174,12 @@ DIFFICULTY_ASTEROID_VARIETY = {
 # Difficulty asteroid size impact
 DIFFICULTY_SIZE_RESTRICTIONS = {
     "Empty Space": {
-        0: ["small", "medium"],
-        1: ["small", "medium"],
-        2: ["small"],
-        3: ["small"],
-        4: ["small"],
-        5: ["small"],
+        0: ["small", "medium", "large"],
+        1: ["small", "medium", "large"],
+        2: ["small", "medium", "large"],
+        3: ["small", "medium"],
+        4: ["small", "medium"],
+        5: ["small", "medium"],
         6: ["small"]
     },
     "Normal Space": {
@@ -188,14 +188,14 @@ DIFFICULTY_SIZE_RESTRICTIONS = {
         2: ["small", "medium", "large"],
         3: ["small", "medium"],
         4: ["small", "medium"],
-        5: ["small"],
+        5: ["small", "medium"],
         6: ["small"]
     },
     "We did not agree on that": {
         0: ["small", "medium", "large"],
         1: ["small", "medium", "large"],
         2: ["small", "medium", "large"],
-        3: ["small", "medium", "large"],
+        3: ["small", "medium"],
         4: ["small", "medium"],
         5: ["small", "medium"],
         6: ["small"]
@@ -204,19 +204,19 @@ DIFFICULTY_SIZE_RESTRICTIONS = {
         0: ["small", "medium", "large"],
         1: ["small", "medium", "large"],
         2: ["small", "medium", "large"],
-        3: ["small", "medium", "large"],
-        4: ["small", "medium", "large"],
+        3: ["small", "medium"],
+        4: ["small", "medium"],
         5: ["small", "medium"],
-        6: ["small", "medium"]
+        6: ["small"]
     },
     "Hell No!!!": {
         0: ["small", "medium", "large"],
         1: ["small", "medium", "large"],
         2: ["small", "medium", "large"],
-        3: ["small", "medium", "large"],
-        4: ["small", "medium", "large"],
-        5: ["small", "medium", "large"],
-        6: ["small", "medium"]
+        3: ["small", "medium"],
+        4: ["small", "medium"],
+        5: ["small", "medium"],
+        6: ["small"]
     }
 }
 
@@ -261,4 +261,13 @@ POWERUP_BOOM_CHAIN_DELAY = 0.2 # seconds between each asteroid explosion in the 
 # Power-up and Explosion Sounds
 SOUND_POWERUP_COLLECT = "assets/sound/power-ups/health.ogg"
 SOUND_EXPLOSION_MAIN = "assets/sound/power-ups/boom.ogg"
-SOUND_ASTEROID_EXPLODE = "assets/sound/power-ups/asteroid-die.ogg" 
+SOUND_ASTEROID_EXPLODE = "assets/sound/power-ups/asteroid-die.ogg"
+
+# Power-up spawn rate multipliers (higher = more frequent spawns)
+DIFFICULTY_POWERUP_SPAWN_MULTIPLIERS = {
+    "Empty Space": 1.0,        
+    "Normal Space": 2.0,       
+    "We did not agree on that": 4.0,
+    "You kidding": 8.0,
+    "Hell No!!!": 16.0         
+} 

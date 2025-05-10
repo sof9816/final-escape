@@ -360,7 +360,11 @@ class Player(pygame.sprite.Sprite):
         Heal the player by a percentage of max health.
         Args:
             percent: int, percent of PLAYER_MAX_HEALTH to heal
+        Returns:
+            int: overflow amount (health that could not be added because already at max)
         """
         heal_amount = int(PLAYER_MAX_HEALTH * (percent / 100))
+        old_health = self.health
         self.health = min(self.health + heal_amount, PLAYER_MAX_HEALTH)
-        # Optionally, trigger a green flash or effect here 
+        overflow = (old_health + heal_amount) - PLAYER_MAX_HEALTH if (old_health + heal_amount) > PLAYER_MAX_HEALTH else 0
+        return overflow 

@@ -250,18 +250,21 @@ class PowerUp(pygame.sprite.Sprite):
             game_state_instance.boom_effect_active = True # Signal GameState to handle the effect
             game_state_instance.boom_flash_timer = POWERUP_BOOM_FLASH_DURATION
             game_state_instance.boom_center = game_state_instance.player.position.copy()
-            
             # Play main explosion sound
             explosion_sound = game_state_instance.asset_loader.assets["sounds"].get("explosion_main")
             if explosion_sound:
                 explosion_sound.play()
             else:
                 print("Warning: explosion_main sound not found or loaded.")
+            # Do NOT add to score for boom power-up
         elif self.type_id.startswith(POWERUP_HEALTH_ID):
             # Heal the player by the specified amount (percent)
             amount = self.amount if self.amount is not None else 25
             player = game_state_instance.player
-            player.heal(amount)
+            overflow = player.heal(amount)
+            # If there is overflow, add it to the score
+            if overflow > 0:
+                game_state_instance.score += overflow
             # Play green effect (particles around player)
             if hasattr(game_state_instance, 'particle_system') and game_state_instance.particle_system:
                 game_state_instance.particle_system.emit_particles(

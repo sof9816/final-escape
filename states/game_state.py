@@ -21,7 +21,8 @@ from constants import (
     POWERUP_BOOM_EFFECT_RADIUS_FACTOR, POWERUP_BOOM_FLASH_DURATION, POWERUP_BOOM_FLASH_COLOR, 
     SOUND_EXPLOSION_MAIN, # Already imported by PowerUp, but good to have explicitly if GameState uses it directly
     SOUND_ASTEROID_EXPLODE, POWERUP_BOOM_CHAIN_EXPLOSIONS, POWERUP_BOOM_CHAIN_DELAY,
-    ASTEROID_PARTICLE_COLORS # Import for asteroid destruction particles
+    ASTEROID_PARTICLE_COLORS,
+    DIFFICULTY_POWERUP_SPAWN_MULTIPLIERS # <-- Add this import
 )
 from entities.player import Player
 from entities.asteroid import Asteroid
@@ -217,9 +218,13 @@ class GameState:
         return random.uniform(base_interval * 0.8, base_interval * 1.2)
     
     def _get_next_powerup_spawn_interval(self):
-        """Calculate the next interval for an independent power-up spawn attempt."""
-        # Return to normal spawn intervals
-        return random.uniform(POWERUP_SPAWN_INTERVAL_MIN, POWERUP_SPAWN_INTERVAL_MAX)
+        """Calculate the next interval for an independent power-up spawn attempt, factoring in difficulty."""
+        current_difficulty = self.settings_manager.get_difficulty()
+        multiplier = DIFFICULTY_POWERUP_SPAWN_MULTIPLIERS.get(current_difficulty, 1.0)
+        base_min = POWERUP_SPAWN_INTERVAL_MIN
+        base_max = POWERUP_SPAWN_INTERVAL_MAX
+        # Divide by multiplier: higher difficulty = shorter interval = more frequent spawns
+        return random.uniform(base_min, base_max) / multiplier
     
     def _choose_asteroid_type(self):
         """Choose an asteroid type based on difficulty.
@@ -303,7 +308,7 @@ class GameState:
                             )
                         asteroid.kill() # Remove asteroid
                         asteroids_destroyed_count += 1
-                        self.score += 50 # Bonus score for power-up destruction
+                        # self.score += 50 # REMOVE: No bonus score for boom effect
 
                 # Schedule chained/delayed explosion sounds
                 num_sounds_to_play = min(asteroids_destroyed_count, POWERUP_BOOM_CHAIN_EXPLOSIONS)
@@ -596,17 +601,13 @@ class GameState:
                 powerup_type_id = f"{POWERUP_HEALTH_ID}_100"
         
         details = POWERUP_TYPES[powerup_type_id]
-        # Compute a random position just outside the screen to drift in
-        edge = random.choice(["top", "left", "right"])
-        if edge == "top":
-            x = random.randint(50, self.screen_width - 50)
-            y = -50
-        elif edge == "left":
-            x = -50
-            y = random.randint(50, self.screen_height // 2)
-        else:  # right
-            x = self.screen_width + 50
-            y = random.randint(50, self.screen_height // 2)
+        # Spawn in a central region (e.g., central 60% of width and height)
+        central_width = int(self.screen_width * 0.6)
+        central_height = int(self.screen_height * 0.6)
+        x_min = (self.screen_width - central_width) // 2
+        y_min = (self.screen_height - central_height) // 2
+        x = random.randint(x_min, x_min + central_width)
+        y = random.randint(y_min, y_min + central_height)
 
         powerup_img = self.asset_loader.assets["powerup_imgs"].get(powerup_type_id)
         if powerup_img is None:
