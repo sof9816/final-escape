@@ -1,0 +1,50 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+- **Power-up System Implementation**
+  - **Definition in [constants.py](mdc:constants.py):**
+    - Each power-up must have a unique ID and entry in `POWERUP_TYPES`.
+    - Specify `image_file`, `rarity`, and any effect-specific fields (e.g., `amount`).
+    - Example:
+      ```python
+      POWERUP_TYPES = {
+          "boom": {"image_file": "boom.png", "rarity": "rare"},
+          "health_25": {"image_file": "health.png", "rarity": "common", "amount": 25},
+          # ...
+      }
+      ```
+  - **Image and Sound in [asset_loader.py](mdc:engine/asset_loader.py):**
+    - Load all power-up images and sounds at startup.
+    - Overlay effect values (e.g., health %) on images for clarity.
+  - **Entity Logic in [powerup.py](mdc:entities/powerup.py):**
+    - Each power-up type should have a unique color theme and particle effect.
+    - The `activate` method must implement the effect and trigger all visuals/sounds.
+    - Use the power-up's fields (e.g., `amount`) to parameterize the effect.
+    - Overlay effect value as text in `draw` if relevant.
+  - **Spawning in [game_state.py](mdc:states/game_state.py):**
+    - Use weighted random selection for rarity and type.
+    - Pass all effect parameters to the PowerUp entity.
+    - Ensure power-up spawn rates are balanced and extensible.
+  - **Best Practices:**
+    - Isolate logic for each power-up type in `activate`.
+    - Use constants for all effect values and rarity.
+    - Always provide visual and audio feedback for collection.
+    - Document new power-up patterns in rules for future contributors.
+
+- **DO:**
+  - Overlay effect values on images and in draw().
+  - Emit unique particles and play a sound for each power-up.
+  - Make all power-up logic extensible for future types.
+
+- **DON'T:**
+  - Hardcode effect logic in multiple places.
+  - Use the same color/effect for all power-ups.
+  - Omit documentation for new power-up types.
+
+- **References:**
+  - [constants.py](mdc:constants.py)
+  - [engine/asset_loader.py](mdc:engine/asset_loader.py)
+  - [entities/powerup.py](mdc:entities/powerup.py)
+  - [states/game_state.py](mdc:states/game_state.py)

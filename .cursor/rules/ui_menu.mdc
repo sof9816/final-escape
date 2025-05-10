@@ -1,0 +1,38 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+- **UI/Menu Implementation**
+  - **Main Menu:**
+    - Presents game title, start, and story mode (locked/unlocked).
+    - Use clear navigation and highlight for selected options.
+    - Play navigation and select sounds for feedback.
+  - **Game Over Screen:**
+    - Show final score, option to restart or return to main menu.
+    - Use large, readable fonts and clear button prompts.
+  - **Navigation:**
+    - Support keyboard and joystick input for all menus.
+    - Use visual feedback (highlight, color) for current selection.
+    - Play sound on navigation and selection.
+  - **Best Practices:**
+    - Keep UI logic separate from game state and rendering.
+    - Use constants for all font sizes, colors, and sound paths.
+    - Make all menus extensible for new options or modes.
+    - Ensure accessibility (readable fonts, color contrast).
+
+- **DO:**
+  - Use sound and visual feedback for all menu actions.
+  - Keep UI code modular and easy to update.
+  - Use consistent font and color schemes across screens.
+
+- **DON'T:**
+  - Hardcode UI strings or values in multiple places.
+  - Mix menu logic with gameplay logic.
+  - Omit feedback for navigation or selection.
+
+- **References:**
+  - [states/menu_state.py](mdc:states/menu_state.py)
+  - [states/game_over_state.py](mdc:states/game_over_state.py)
+  - [engine/asset_loader.py](mdc:engine/asset_loader.py)
+  - [constants.py](mdc:constants.py)

@@ -7,7 +7,7 @@ import os
 import math
 from pygame.math import Vector2
 from constants import (
-    POWERUP_SIZE, POWERUP_BOOM_ID, 
+    POWERUP_SIZE, POWERUP_BOOM_ID, POWERUP_HEALTH_ID,
     SOUND_EXPLOSION_MAIN, POWERUP_BOOM_FLASH_DURATION
 )
 
@@ -20,6 +20,15 @@ POWERUP_COLOR_THEMES = {
             (255, 140, 0),    # Dark Orange
             (255, 99, 71),    # Tomato
             (255, 69, 0)      # Red-Orange
+        ]
+    },
+    POWERUP_HEALTH_ID: {
+        "glow_color": (50, 255, 100),  # Green for health
+        "particle_colors": [
+            (50, 255, 100),   # Green
+            (100, 255, 150),  # Lighter green
+            (200, 255, 200),  # Very light green
+            (255, 255, 255)   # White
         ]
     },
     # Add more themes for future power-up types here
@@ -54,7 +63,7 @@ class PowerUpGroup(pygame.sprite.Group):
 class PowerUp(pygame.sprite.Sprite):
     """PowerUp class representing collectible items with special effects."""
 
-    def __init__(self, initial_position, powerup_type_id, powerup_image_surface, screen_width, screen_height):
+    def __init__(self, initial_position, powerup_type_id, powerup_image_surface, screen_width, screen_height, amount=None):
         """Initialize a power-up.
 
         Args:
@@ -63,10 +72,12 @@ class PowerUp(pygame.sprite.Sprite):
             powerup_image_surface (pygame.Surface): The pre-loaded image for this power-up.
             screen_width (int): Width of the game screen.
             screen_height (int): Height of the game screen.
+            amount (int): Amount for health power-ups.
         """
         super().__init__()
         
         self.type_id = powerup_type_id
+        self.amount = amount  # For health power-ups
         if powerup_image_surface is None:
             # Create a fallback image if none provided
             fallback_img = pygame.Surface((POWERUP_SIZE, POWERUP_SIZE), pygame.SRCALPHA)
@@ -89,7 +100,8 @@ class PowerUp(pygame.sprite.Sprite):
         self.radius = self.rect.width // 2
         
         # Get color theme for this powerup type
-        color_theme = POWERUP_COLOR_THEMES.get(self.type_id, POWERUP_COLOR_THEMES["default"])
+        theme_key = self.type_id.split('_')[0] if self.type_id.startswith(POWERUP_HEALTH_ID) else self.type_id
+        color_theme = POWERUP_COLOR_THEMES.get(theme_key, POWERUP_COLOR_THEMES["default"])
         
         # Animation and effect properties
         self.pulse_factor = 0  # Controls the pulse animation
@@ -216,6 +228,14 @@ class PowerUp(pygame.sprite.Sprite):
         
         # Draw the powerup sprite on top of the glow
         surface.blit(self.image, self.rect)
+        
+        # If this is a health power-up, overlay the amount as text (for extra clarity)
+        if self.type_id.startswith(POWERUP_HEALTH_ID) and self.amount is not None:
+            font = pygame.font.Font(None, 18)
+            text = f"{self.amount}%"
+            text_surface = font.render(text, True, (0, 255, 0))
+            text_rect = text_surface.get_rect(center=self.rect.center)
+            surface.blit(text_surface, text_rect)
 
     def activate(self, game_state_instance):
         """
@@ -238,6 +258,27 @@ class PowerUp(pygame.sprite.Sprite):
                 explosion_sound.play()
             else:
                 print("Warning: explosion_main sound not found or loaded.")
-
+        elif self.type_id.startswith(POWERUP_HEALTH_ID):
+            # Heal the player by the specified amount (percent)
+            amount = self.amount if self.amount is not None else 25
+            player = game_state_instance.player
+            player.heal(amount)
+            # Play green effect (particles around player)
+            if hasattr(game_state_instance, 'particle_system') and game_state_instance.particle_system:
+                game_state_instance.particle_system.emit_particles(
+                    player.position.x, player.position.y,
+                    POWERUP_COLOR_THEMES[POWERUP_HEALTH_ID]["particle_colors"],
+                    count=30,
+                    velocity_range=((-80, 80), (-80, 80)),
+                    size_range=(2, 5),
+                    lifetime_range=(0.5, 1.2),
+                    fade=True
+                )
+            # Play health sound
+            health_sound = game_state_instance.asset_loader.assets["sounds"].get("powerup_collect")
+            if health_sound:
+                health_sound.play()
+            else:
+                print("Warning: health powerup sound not found or loaded.")
         # Common logic for all power-ups after activation (e.g., removal)
         self.kill() # Remove power-up sprite from all groups 

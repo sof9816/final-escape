@@ -303,6 +303,23 @@ class AssetLoader:
             fallback_font = pygame.font.Font(None, size)
             return fallback_font.render(text, True, color)
     
+    def create_health_powerup_image(self, base_image, amount):
+        """
+        Overlay the health amount (e.g., '25%') on the health power-up image.
+        Args:
+            base_image: pygame.Surface of the health image
+            amount: int, the health percentage
+        Returns:
+            pygame.Surface with text overlay
+        """
+        img = base_image.copy()
+        font = self.load_font(None, 18)
+        text = f"{amount}%"
+        text_surface = font.render(text, True, (0, 255, 0))
+        rect = text_surface.get_rect(center=(img.get_width()//2, img.get_height()//2))
+        img.blit(text_surface, rect)
+        return img
+    
     def load_game_assets(self):
         """
         Load all game assets at once.
@@ -389,6 +406,9 @@ class AssetLoader:
                 powerup_relative_path, 
                 scale=(POWERUP_SIZE, POWERUP_SIZE)
             )
+            # Overlay health amount if this is a health power-up
+            if powerup_id.startswith("health") and "amount" in details:
+                loaded_image = self.create_health_powerup_image(loaded_image, details["amount"])
             print(f"Loaded image: {loaded_image}, size: {loaded_image.get_size() if loaded_image else 'None'}")
             self.assets["powerup_imgs"][powerup_id] = loaded_image
             

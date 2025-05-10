@@ -1,0 +1,79 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+- **BOOM Power-up Implementation**
+  - **Define power-up type in [constants.py](mdc:constants.py):**
+    - Use a unique ID (e.g., `POWERUP_BOOM_ID`)
+    - Add an entry to `POWERUP_TYPES` with `image_file` and `rarity: 'rare'`.
+    - Example:
+      ```python
+      POWERUP_BOOM_ID = "boom"
+      POWERUP_TYPES = {
+          POWERUP_BOOM_ID: {"image_file": "boom.png", "rarity": "rare"},
+          # ...
+      }
+      ```
+    - Configure explosion radius, flash color, duration, and sound constants.
+
+  - **Image and sound in [asset_loader.py](mdc:engine/asset_loader.py):**
+    - Load the boom image and explosion sound(s) for use in the game.
+    - Example:
+      ```python
+      "explosion_main": self.load_sound(SOUND_EXPLOSION_MAIN, volume=0.8),
+      "asteroid_explode": self.load_sound(SOUND_ASTEROID_EXPLODE, volume=0.1),
+      ```
+
+  - **Entity logic in [powerup.py](mdc:entities/powerup.py):**
+    - Add a color theme for BOOM in `POWERUP_COLOR_THEMES` (e.g., orange/red glow and particles).
+    - In `activate`, set flags on the game state to trigger the explosion effect, flash, and sound.
+    - Example:
+      ```python
+      if self.type_id == POWERUP_BOOM_ID:
+          game_state_instance.boom_effect_active = True
+          game_state_instance.boom_flash_timer = POWERUP_BOOM_FLASH_DURATION
+          game_state_instance.boom_center = game_state_instance.player.position.copy()
+          # Play explosion sound
+      ```
+
+  - **Explosion logic in [game_state.py](mdc:states/game_state.py):**
+    - When `boom_effect_active` is set, destroy all asteroids within a large radius (over half the screen), emit particles, and award bonus points for each destroyed asteroid.
+    - Play multiple explosion sounds in sequence for dramatic effect.
+    - Example:
+      ```python
+      if self.boom_effect_active:
+          # For each asteroid in radius: destroy, emit particles, add score
+          # Schedule multiple explosion sounds
+      ```
+    - Show a white flash overlay on the screen for visual feedback.
+
+  - **Scoring:**
+    - Award bonus points for each asteroid destroyed by the BOOM effect (e.g., +50 per asteroid).
+
+  - **Best Practices:**
+    - Make BOOM power-up rare in the spawn logic.
+    - Use a large explosion radius (e.g., >50% of the screen size).
+    - Play a main explosion sound and several asteroid explosion sounds in sequence.
+    - Emit a burst of orange/red particles for each destroyed asteroid.
+    - Show a white flash overlay for a short duration.
+    - Award bonus points for each asteroid destroyed.
+    - Keep all effect logic isolated and extensible for future power-ups.
+
+- **DO:**
+  - Use a unique color and sound for BOOM effects.
+  - Destroy all asteroids in the explosion radius and reward the player.
+  - Play multiple explosion sounds for impact.
+  - Show a screen flash and emit particles for feedback.
+  - Document the pattern in rules for future reference.
+
+- **DON'T:**
+  - Make the BOOM power-up common.
+  - Use the same effect or sound as other power-ups.
+  - Forget to award bonus points for destroyed asteroids.
+
+- **References:**
+  - [constants.py](mdc:constants.py)
+  - [engine/asset_loader.py](mdc:engine/asset_loader.py)
+  - [entities/powerup.py](mdc:entities/powerup.py)
+  - [states/game_state.py](mdc:states/game_state.py)

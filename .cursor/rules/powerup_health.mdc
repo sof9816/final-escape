@@ -1,0 +1,74 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+- **Health Power-up Implementation**
+  - **Define power-up types in [constants.py](mdc:constants.py):**
+    - Use a unique ID (e.g., `POWERUP_HEALTH_ID`)
+    - Add entries to `POWERUP_TYPES` for each health value (e.g., 25%, 50%, 100%) with `amount` and `rarity` fields.
+    - Example:
+      ```python
+      POWERUP_HEALTH_ID = "health"
+      POWERUP_TYPES = {
+          f"{POWERUP_HEALTH_ID}_25": {"image_file": "health.png", "rarity": "common", "amount": 25},
+          # ...
+      }
+      ```
+  - **Image overlays in [asset_loader.py](mdc:engine/asset_loader.py):**
+    - Use a helper to overlay the health amount (e.g., '25%') on the power-up image using green text.
+    - Example:
+      ```python
+      def create_health_powerup_image(self, base_image, amount):
+          # ...
+      ```
+  - **Entity logic in [powerup.py](mdc:entities/powerup.py):**
+    - Add a green color theme for health power-ups in `POWERUP_COLOR_THEMES`.
+    - Pass the `amount` to the PowerUp constructor and store it.
+    - In `activate`, call `player.heal(amount)` and emit green particles.
+    - Overlay the amount as text in `draw` for extra clarity.
+    - Example:
+      ```python
+      if self.type_id.startswith(POWERUP_HEALTH_ID):
+          player.heal(self.amount)
+          # Emit green particles
+      ```
+  - **Player healing in [player.py](mdc:entities/player.py):**
+    - Add a `heal(percent)` method to increase health by a percentage of max health, clamped to max.
+    - Example:
+      ```python
+      def heal(self, percent):
+          heal_amount = int(PLAYER_MAX_HEALTH * (percent / 100))
+          self.health = min(self.health + heal_amount, PLAYER_MAX_HEALTH)
+      ```
+  - **Spawning logic in [game_state.py](mdc:states/game_state.py):**
+    - Use weighted random selection for power-up rarity.
+    - Pass the `amount` to the PowerUp constructor for health types.
+    - Example:
+      ```python
+      amount = details.get("amount") if powerup_type_id.startswith(POWERUP_HEALTH_ID) else None
+      new_powerup = PowerUp(..., amount=amount)
+      ```
+  - **Best Practices:**
+    - Always overlay the health amount for clarity.
+    - Use green for all health-related effects.
+    - Play a distinct sound on collection.
+    - Keep logic for each power-up type isolated and extensible.
+
+- **DO:**
+  - Use percentage-based healing for flexibility.
+  - Overlay the health value on the image and in draw().
+  - Emit green particles and play a sound on collection.
+  - Document new power-up patterns in rules.
+
+- **DON'T:**
+  - Hardcode healing logic in multiple places.
+  - Use the same color/effect for all power-ups.
+  - Omit the health value overlay for health power-ups.
+
+- **References:**
+  - [constants.py](mdc:constants.py)
+  - [engine/asset_loader.py](mdc:engine/asset_loader.py)
+  - [entities/powerup.py](mdc:entities/powerup.py)
+  - [entities/player.py](mdc:entities/player.py)
+  - [states/game_state.py](mdc:states/game_state.py)

@@ -224,12 +224,27 @@ DIFFICULTY_SIZE_RESTRICTIONS = {
 POWERUP_SIZE = 40  # Default size for power-up icons
 POWERUP_SPAWN_CHANCE = 0.25  # 25% chance to spawn (increased from 5% to improve chances)
 POWERUP_BOOM_ID = "boom"
+POWERUP_HEALTH_ID = "health"
 POWERUP_TYPES = {
     POWERUP_BOOM_ID: {
         "image_file": "boom.png",
-        "rarity": "rare" # "common", "uncommon", "rare" - for future use
+        "rarity": "rare"
+    },
+    f"{POWERUP_HEALTH_ID}_25": {
+        "image_file": "health.png",
+        "rarity": "common",
+        "amount": 25
+    },
+    f"{POWERUP_HEALTH_ID}_50": {
+        "image_file": "health.png",
+        "rarity": "uncommon",
+        "amount": 50
+    },
+    f"{POWERUP_HEALTH_ID}_100": {
+        "image_file": "health.png",
+        "rarity": "rare",
+        "amount": 100
     }
-    # Add other power-up types here in the future
 }
 POWERUP_BOOM_EFFECT_RADIUS_FACTOR = 0.7 # Increased from 0.5 to 0.7 for larger explosion radius
 POWERUP_BOOM_FLASH_COLOR = (255, 255, 255) # White

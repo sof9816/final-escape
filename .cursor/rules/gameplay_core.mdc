@@ -1,0 +1,50 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+- **Gameplay Core Implementation**
+  - **Game Modes:**
+    - Support for multiple modes (e.g., story mode, space mode). Story mode can be locked/unlocked.
+    - Space mode features endless asteroid avoidance with increasing difficulty.
+  - **Asteroid System:**
+    - Asteroids have types (a0 to a6) with increasing danger and damage.
+    - Each type supports different size variations (a0: big/mid/small, a6: small only).
+    - Asteroid damage and spawn rates scale with level/difficulty.
+    - Use weighted random selection for asteroid type and size per level.
+    - Example:
+      ```python
+      ASTEROID_TYPE_WEIGHTS, ASTEROID_SIZE_RESTRICTIONS, ASTEROID_BASE_DAMAGE
+      ```
+  - **Player Health and Damage:**
+    - Player has max health, takes damage based on asteroid type/size.
+    - Health bar is always visible and updates in real time.
+    - Invulnerability and visual feedback after taking damage.
+  - **Particles and Visual Effects:**
+    - Use particles for asteroid destruction, ship thrusters, and background stars.
+    - Particle system should be performant and visually appealing.
+  - **Navigation and Controls:**
+    - Ship can move in all directions, with smooth acceleration/deceleration.
+    - Joystick and keyboard support.
+  - **Best Practices:**
+    - Keep game state logic isolated from rendering and input.
+    - Use constants for all tunable values (damage, speed, spawn rates).
+    - Make all systems extensible for new modes, asteroid types, and effects.
+
+- **DO:**
+  - Use weighted random for asteroid variety.
+  - Clamp health and damage values.
+  - Emit particles for all major events (explosions, thrusters).
+  - Keep gameplay logic modular and testable.
+
+- **DON'T:**
+  - Hardcode values in multiple places.
+  - Mix rendering, input, and game state logic.
+  - Omit visual feedback for damage or power-ups.
+
+- **References:**
+  - [states/game_state.py](mdc:states/game_state.py)
+  - [entities/asteroid.py](mdc:entities/asteroid.py)
+  - [entities/player.py](mdc:entities/player.py)
+  - [constants.py](mdc:constants.py)
+  - [engine/asset_loader.py](mdc:engine/asset_loader.py)

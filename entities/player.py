@@ -353,4 +353,14 @@ class Player(pygame.sprite.Sprite):
                 size_range=(current_min_size, current_max_size),
                 lifetime_range=(current_min_lifetime, current_max_lifetime),
                 fade=True
-            ) 
+            )
+    
+    def heal(self, percent):
+        """
+        Heal the player by a percentage of max health.
+        Args:
+            percent: int, percent of PLAYER_MAX_HEALTH to heal
+        """
+        heal_amount = int(PLAYER_MAX_HEALTH * (percent / 100))
+        self.health = min(self.health + heal_amount, PLAYER_MAX_HEALTH)
+        # Optionally, trigger a green flash or effect here 
