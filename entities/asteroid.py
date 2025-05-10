@@ -147,13 +147,23 @@ class Asteroid(pygame.sprite.Sprite):
         # Apply tint if needed
         tint = difficulty_tints.get(self.difficulty)
         if tint:
-            # Create a tint surface with proper alpha
-            tint_surface = pygame.Surface(original_img_with_alpha.get_size(), pygame.SRCALPHA)
+            size = original_img_with_alpha.get_size()
+            # Create a circular mask
+            mask = pygame.Surface(size, pygame.SRCALPHA)
+            center = (size[0] // 2, size[1] // 2)
+            radius = min(size) // 2
+            pygame.draw.circle(mask, (255, 255, 255, 255), center, radius)
+
+            # Create a tint surface
+            tint_surface = pygame.Surface(size, pygame.SRCALPHA)
             tint_surface.fill(tint)
-            
-            # Apply the tint
+
+            # Apply the mask to the tint surface
+            tint_surface.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+
+            # Apply the circular tint to the original image
             original_img_with_alpha.blit(tint_surface, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
-            
+        
         # Add glow for higher difficulties
         if self.difficulty in ["You kidding", "Hell No!!!"]:
             # Create larger glow surface with proper alpha
