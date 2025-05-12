@@ -66,28 +66,28 @@ class AssetLoader:
             print(f"AssetLoader: Using provided path for image: {full_path}")
         else:
             # "New style" - path is relative to the current resolution directory
-            full_path = os.path.join("assets/images", self.image_size_dir, relative_path)
+            full_path = os.path.abspath(os.path.join("assets/images", self.image_size_dir, relative_path))
             # print(f"AssetLoader: Constructed path for image: {full_path} (from relative: '{relative_path}')")
 
         # Check if the resolution-specific asset exists
-        if not os.path.exists(full_path):
+        if not os.path.exists(os.path.abspath(full_path)):
             # If the original path was already an "old style" specific path, don't try 1x fallback again unless it was NOT a 1x path.
             # If it was a "new style" constructed path, try 1x.
             attempt_1x_fallback = not relative_path.startswith("assets/images/") or not "/1x/" in relative_path
             
             if attempt_1x_fallback:
                 print(f"AssetLoader: Image not found at '{full_path}'. Attempting 1x fallback.")
-                fallback_path = os.path.join("assets/images", "1x", relative_path) # For new style, relative_path is simple
+                fallback_path = os.path.abspath(os.path.join("assets/images", "1x", relative_path)) # For new style, relative_path is simple
                 if relative_path.startswith("assets/images/"): # If old style, need to reconstruct 1x path carefully
                     # e.g., assets/images/2x/ship.png -> assets/images/1x/ship.png
                     parts = relative_path.split(os.sep)
                     if len(parts) > 2 and parts[0] == "assets" and parts[1] == "images":
                         parts[2] = "1x"
-                        fallback_path = os.path.join(*parts)
+                        fallback_path = os.path.abspath(os.path.join(*parts))
                     else: # Cannot reliably make a 1x path from this old style
                         fallback_path = None 
 
-                if fallback_path and os.path.exists(fallback_path):
+                if fallback_path and os.path.exists(os.path.abspath(fallback_path)):
                     print(f"AssetLoader: Falling back to 1x: {fallback_path}")
                     full_path = fallback_path
                 else:
@@ -164,7 +164,7 @@ class AssetLoader:
                     print(f"Warning: pygame.font.Font(None, {size}) failed. Trying SysFont as absolute fallback.")
                     font = pygame.font.SysFont(None, size) # This should ideally find *something*
             # Check if it's a file path (only if name is not None)
-            elif os.path.exists(name):
+            elif os.path.exists(os.path.abspath(name)):
                 font = pygame.font.Font(name, size)
             else:
                 # Try to use a system font if name is provided but file doesn't exist
@@ -196,7 +196,7 @@ class AssetLoader:
             return self.sounds[path]
         
         # Check if the file exists
-        if not os.path.exists(path):
+        if not os.path.exists(os.path.abspath(path)):
             print(f"Sound file not found: {path}")
             self.sounds[path] = None  # Cache the missing sound to avoid repeated file checks
             return None
@@ -260,7 +260,7 @@ class AssetLoader:
         try:
             # Try to load the bold font for the logo
             font_path = "assets/fonts/PixelifySans-Bold.ttf"
-            if os.path.exists(font_path):
+            if os.path.exists(os.path.abspath(font_path)):
                 logo_font = self.load_font(font_path, size)
             else:
                 logo_font = pygame.font.Font(None, size)
@@ -334,7 +334,7 @@ class AssetLoader:
         sound_dir = "assets/sound" # Still used for sounds
         
         # Path to resolution-specific assets is handled by load_image
-        # res_dir = os.path.join(base_images_dir, self.image_size_dir)
+        # res_dir = os.path.abspath(os.path.join(base_images_dir, self.image_size_dir))
         
         # Player image relative path
         ship_relative_path = "ship.png"
@@ -351,15 +351,15 @@ class AssetLoader:
             
             # Music paths (direct paths, not using load_image)
             "music": {
-                "menu": os.path.join(sound_dir, "Lone Knight in the Stars(Menu Scene).ogg"),
-                "game": os.path.join(sound_dir, "Pixel Knight Asteroid Chase(Game Scene).ogg"),
-                "game_over": os.path.join(sound_dir, "Asteroid Knight(Game Over).ogg")
+                "menu": os.path.abspath(os.path.join(sound_dir, "Lone Knight in the Stars(Menu Scene).ogg")),
+                "game": os.path.abspath(os.path.join(sound_dir, "Pixel Knight Asteroid Chase(Game Scene).ogg")),
+                "game_over": os.path.abspath(os.path.join(sound_dir, "Asteroid Knight(Game Over).ogg"))
             },
             
             # Sound effects
             "sounds": {
-                "menu_navigate": self.load_sound(os.path.join(sound_dir, "menu_navigate.wav"), volume=0.4),
-                "menu_select": self.load_sound(os.path.join(sound_dir, "menu_select.wav"), volume=0.5),
+                "menu_navigate": self.load_sound(os.path.abspath(os.path.join(sound_dir, "menu_navigate.wav")), volume=0.4),
+                "menu_select": self.load_sound(os.path.abspath(os.path.join(sound_dir, "menu_select.wav")), volume=0.5),
                 # New sounds
                 "powerup_collect": self.load_sound(SOUND_POWERUP_COLLECT, volume=0.9),
                 "explosion_main": self.load_sound(SOUND_EXPLOSION_MAIN, volume=0.8),
@@ -433,35 +433,35 @@ class AssetLoader:
         try:
             # Check for custom fonts
             font_files = {
-                "regular": os.path.join(fonts_dir, "PixelifySans-Regular.ttf"),
-                "medium": os.path.join(fonts_dir, "PixelifySans-Medium.ttf"),
-                "semibold": os.path.join(fonts_dir, "PixelifySans-SemiBold.ttf"),
-                "bold": os.path.join(fonts_dir, "PixelifySans-Bold.ttf")
+                "regular": os.path.abspath(os.path.join(fonts_dir, "PixelifySans-Regular.ttf")),
+                "medium": os.path.abspath(os.path.join(fonts_dir, "PixelifySans-Medium.ttf")),
+                "semibold": os.path.abspath(os.path.join(fonts_dir, "PixelifySans-SemiBold.ttf")),
+                "bold": os.path.abspath(os.path.join(fonts_dir, "PixelifySans-Bold.ttf"))
             }
             
             # Load fonts if they exist, overwriting the fallbacks
             self.assets["fonts"]["score"] = self.load_font(
-                font_files["regular"] if os.path.exists(font_files["regular"]) else None, 
+                font_files["regular"] if os.path.exists(os.path.abspath(font_files["regular"])) else None,
                 SCORE_FONT_SIZE
             )
             
             self.assets["fonts"]["game_over"] = self.load_font(
-                font_files["bold"] if os.path.exists(font_files["bold"]) else None, 
+                font_files["bold"] if os.path.exists(os.path.abspath(font_files["bold"])) else None,
                 GAME_OVER_FONT_SIZE
             )
             
             self.assets["fonts"]["title"] = self.load_font(
-                font_files["bold"] if os.path.exists(font_files["bold"]) else None, 
+                font_files["bold"] if os.path.exists(os.path.abspath(font_files["bold"])) else None,
                 TITLE_FONT_SIZE
             )
             
             self.assets["fonts"]["instruction"] = self.load_font(
-                font_files["medium"] if os.path.exists(font_files["medium"]) else None, 
+                font_files["medium"] if os.path.exists(os.path.abspath(font_files["medium"])) else None,
                 INSTRUCTION_FONT_SIZE
             )
             
             self.assets["fonts"]["countdown"] = self.load_font(
-                font_files["bold"] if os.path.exists(font_files["bold"]) else None, 
+                font_files["bold"] if os.path.exists(os.path.abspath(font_files["bold"])) else None,
                 COUNTDOWN_FONT_SIZE
             )
             

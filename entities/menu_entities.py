@@ -155,7 +155,7 @@ class MenuPlayer:
         # Load player image using the appropriate resolution directory
         res_dir = asset_loader.image_size_dir  # Get the resolution dir (1x, 2x, 3x)
         # Construct the "old style" path for the ship, as requested
-        ship_path = os.path.join("assets/images", res_dir, "ship.png")
+        ship_path = os.path.abspath(os.path.join("assets/images", res_dir, "ship.png"))
         
         # Load player image
         self.image_original = asset_loader.load_image(

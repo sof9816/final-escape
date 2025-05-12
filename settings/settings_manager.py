@@ -37,7 +37,7 @@ class SettingsManager:
         self.settings_dir = settings_dir
         os.makedirs(self.settings_dir, exist_ok=True)
         
-        self.settings_path = os.path.join(self.settings_dir, "settings.json")
+        self.settings_path = os.path.abspath(os.path.join(self.settings_dir, "settings.json"))
         
         # Configure logging
         logging.basicConfig(level=logging.INFO, 
